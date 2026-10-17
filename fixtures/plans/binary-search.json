@@ -1,0 +1,277 @@
+{
+  "schemaVersion": "1.0",
+  "projectId": "binary-search",
+  "ownerId": "local",
+  "versionId": "binary-search-fixture-v1",
+  "parentVersionId": null,
+  "topic": "Binary Search Algorithm",
+  "audience": "Computer science students and curious programmers",
+  "learningObjective": "Demonstrate the binary search algorithm on a sorted list, highlighting the midpoint, eliminating half the search range, and repeating until the target is found.",
+  "language": "en",
+  "voicePreset": "indian-english-female",
+  "sources": [
+    {
+      "id": "notes-binary-search",
+      "text": "Binary search finds an item in a sorted array in O(log n) time by repeatedly dividing the search interval in half. Input must be sorted."
+    }
+  ],
+  "scenes": [
+    {
+      "id": "scene-hook",
+      "type": "title-hook",
+      "purpose": "Introduce binary search as the fast way to search sorted lists.",
+      "estimatedDurationMs": 10000,
+      "narration": [
+        {
+          "id": "nar-bs-hook-1",
+          "text": "Searching through items one by one takes too long. Binary search finds what you need in seconds by dividing the problem in half."
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-bs-title",
+          "kind": "text",
+          "label": "Binary Search"
+        },
+        {
+          "id": "obj-bs-icon",
+          "kind": "icon",
+          "label": "Search Algorithm"
+        }
+      ],
+      "events": [
+        {
+          "id": "ev-bs-hook-1",
+          "targetId": "obj-bs-title",
+          "action": "reveal",
+          "cue": {
+            "blockId": "nar-bs-hook-1",
+            "phrase": "Binary search",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 450
+        }
+      ],
+      "onScreenText": [
+        "Binary Search",
+        "Divide and Conquer"
+      ],
+      "sourceRefs": ["notes-binary-search"]
+    },
+    {
+      "id": "scene-prerequisite",
+      "type": "step-sequence",
+      "purpose": "Emphasize the strict requirement for a sorted list.",
+      "estimatedDurationMs": 11000,
+      "narration": [
+        {
+          "id": "nar-bs-prereq-1",
+          "text": "First, the crucial rule: binary search only works on a sorted list of numbers. Without sorting, we cannot safely discard anything."
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-sorted-badge",
+          "kind": "label",
+          "label": "Requires Sorted Input"
+        },
+        {
+          "id": "obj-array-box",
+          "kind": "container",
+          "label": "Sorted Numbers"
+        }
+      ],
+      "events": [
+        {
+          "id": "ev-bs-prereq-1",
+          "targetId": "obj-sorted-badge",
+          "action": "highlight",
+          "cue": {
+            "blockId": "nar-bs-prereq-1",
+            "phrase": "sorted list of numbers",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 500
+        }
+      ],
+      "onScreenText": [
+        "Prerequisite: Sorted Input",
+        "Essential for Binary Search"
+      ],
+      "sourceRefs": ["notes-binary-search"]
+    },
+    {
+      "id": "scene-step-1",
+      "type": "step-sequence",
+      "purpose": "Check the midpoint at index 4 and discard the lower half.",
+      "estimatedDurationMs": 13000,
+      "narration": [
+        {
+          "id": "nar-bs-step1-1",
+          "text": "To find 72, we inspect the middle value, 38. Since 72 is greater than 38, we immediately discard the entire left half of the array."
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-mid-1",
+          "kind": "node",
+          "label": "Midpoint: 38"
+        },
+        {
+          "id": "obj-discard-left",
+          "kind": "container",
+          "label": "Discard Left Half"
+        }
+      ],
+      "events": [
+        {
+          "id": "ev-bs-step1-1",
+          "targetId": "obj-mid-1",
+          "action": "reveal",
+          "cue": {
+            "blockId": "nar-bs-step1-1",
+            "phrase": "middle value, 38",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 400
+        },
+        {
+          "id": "ev-bs-step1-2",
+          "targetId": "obj-discard-left",
+          "action": "emphasize",
+          "cue": {
+            "blockId": "nar-bs-step1-1",
+            "phrase": "discard the entire left half",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 500
+        }
+      ],
+      "onScreenText": [
+        "Step 1: Check Midpoint",
+        "Target > 38: Discard Left Half"
+      ],
+      "sourceRefs": ["notes-binary-search"]
+    },
+    {
+      "id": "scene-step-2",
+      "type": "step-sequence",
+      "purpose": "Inspect the new midpoint in the remaining upper half.",
+      "estimatedDurationMs": 12000,
+      "narration": [
+        {
+          "id": "nar-bs-step2-1",
+          "text": "Now our search range is cut in half. We calculate the new middle element at index 6, which holds the value 72."
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-mid-2",
+          "kind": "node",
+          "label": "New Midpoint: 72"
+        }
+      ],
+      "events": [
+        {
+          "id": "ev-bs-step2-1",
+          "targetId": "obj-mid-2",
+          "action": "highlight",
+          "cue": {
+            "blockId": "nar-bs-step2-1",
+            "phrase": "new middle element",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 400
+        }
+      ],
+      "onScreenText": [
+        "Step 2: Narrow Range",
+        "New Midpoint at Index 6"
+      ],
+      "sourceRefs": ["notes-binary-search"]
+    },
+    {
+      "id": "scene-step-3",
+      "type": "step-sequence",
+      "purpose": "Confirm target match and highlight O(log n) efficiency.",
+      "estimatedDurationMs": 11000,
+      "narration": [
+        {
+          "id": "nar-bs-step3-1",
+          "text": "It is an exact match! Instead of checking all nine numbers, we found 72 in just two quick steps."
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-match-success",
+          "kind": "label",
+          "label": "Target 72 Found"
+        }
+      ],
+      "events": [
+        {
+          "id": "ev-bs-step3-1",
+          "targetId": "obj-match-success",
+          "action": "reveal",
+          "cue": {
+            "blockId": "nar-bs-step3-1",
+            "phrase": "exact match",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 400
+        }
+      ],
+      "onScreenText": [
+        "Target Found!",
+        "Match Confirmed at Index 6"
+      ],
+      "sourceRefs": ["notes-binary-search"]
+    },
+    {
+      "id": "scene-takeaway",
+      "type": "takeaway",
+      "purpose": "Explain logarithmic efficiency.",
+      "estimatedDurationMs": 10000,
+      "narration": [
+        {
+          "id": "nar-bs-takeaway-1",
+          "text": "That is the power of O of log n complexity. Even across a billion sorted items, binary search takes only about thirty comparisons."
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-takeaway-complexity",
+          "kind": "text",
+          "label": "O(log n) Efficiency"
+        }
+      ],
+      "events": [
+        {
+          "id": "ev-bs-takeaway-1",
+          "targetId": "obj-takeaway-complexity",
+          "action": "emphasize",
+          "cue": {
+            "blockId": "nar-bs-takeaway-1",
+            "phrase": "power of O of log n",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 400
+        }
+      ],
+      "onScreenText": [
+        "Takeaway: O(log n) Efficiency",
+        "Divide and Conquer at Scale"
+      ],
+      "sourceRefs": ["notes-binary-search"]
+    }
+  ],
+  "warnings": []
+}
+

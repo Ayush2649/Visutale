@@ -1,0 +1,350 @@
+{
+  "schemaVersion": "1.0",
+  "projectId": "water-cycle",
+  "ownerId": "local",
+  "versionId": "water-cycle-fixture-v1",
+  "parentVersionId": null,
+  "topic": "How the water cycle works",
+  "audience": "Curious beginners",
+  "learningObjective": "Explain how water moves through evaporation, condensation, precipitation, and collection.",
+  "language": "en",
+  "voicePreset": "indian-english-female",
+  "sources": [
+    {
+      "id": "fixture-notes-water-cycle",
+      "text": "Prototype fixture notes only: water moves through evaporation, condensation, precipitation, and collection; sunlight provides energy; plants also release water vapour through transpiration. These notes have not been independently reviewed as part of this repository."
+    }
+  ],
+  "scenes": [
+    {
+      "id": "scene-hook",
+      "type": "title-hook",
+      "purpose": "Introduce the water cycle as a continuous loop.",
+      "estimatedDurationMs": 9000,
+      "narration": [
+        {
+          "id": "line-hook",
+          "text": "Water on Earth is constantly moving through a natural loop. This journey is called the water cycle, and sunlight helps drive it."
+        }
+      ],
+      "objects": [
+        {
+          "id": "loop-icon",
+          "kind": "icon",
+          "label": "Water cycle"
+        },
+        {
+          "id": "hook-title",
+          "kind": "text",
+          "label": "The water cycle"
+        }
+      ],
+      "events": [
+        {
+          "id": "event-hook-title",
+          "targetId": "hook-title",
+          "action": "reveal",
+          "cue": {
+            "blockId": "line-hook",
+            "phrase": "water cycle",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 450
+        }
+      ],
+      "onScreenText": [
+        "The water cycle",
+        "A continuous journey"
+      ],
+      "sourceRefs": [
+        "fixture-notes-water-cycle"
+      ]
+    },
+    {
+      "id": "scene-evaporation",
+      "type": "process-flow",
+      "purpose": "Show liquid water warming and turning into water vapour.",
+      "estimatedDurationMs": 11000,
+      "narration": [
+        {
+          "id": "line-evaporation",
+          "text": "First, sunlight warms water in oceans, lakes, and rivers. Some liquid water turns into invisible water vapour and rises into the air."
+        }
+      ],
+      "objects": [
+        {
+          "id": "water-body",
+          "kind": "container",
+          "label": "Ocean, lake, or river"
+        },
+        {
+          "id": "sunlight-arrow",
+          "kind": "arrow",
+          "label": "Sunlight"
+        },
+        {
+          "id": "vapour-arrow",
+          "kind": "arrow",
+          "label": "Water vapour rises"
+        }
+      ],
+      "events": [
+        {
+          "id": "event-vapour",
+          "targetId": "vapour-arrow",
+          "action": "reveal",
+          "cue": {
+            "blockId": "line-evaporation",
+            "phrase": "turns into invisible water vapour",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 650
+        }
+      ],
+      "onScreenText": [
+        "Sunlight warms water",
+        "Evaporation"
+      ],
+      "sourceRefs": [
+        "fixture-notes-water-cycle"
+      ]
+    },
+    {
+      "id": "scene-transpiration",
+      "type": "labeled-diagram",
+      "purpose": "Show that plants also release water vapour.",
+      "estimatedDurationMs": 9000,
+      "narration": [
+        {
+          "id": "line-transpiration",
+          "text": "This change is called evaporation. Plants also release water vapour from their leaves, a process known as transpiration."
+        }
+      ],
+      "objects": [
+        {
+          "id": "plant-icon",
+          "kind": "icon",
+          "label": "Plant"
+        },
+        {
+          "id": "leaf-vapour",
+          "kind": "arrow",
+          "label": "Water vapour from leaves"
+        }
+      ],
+      "events": [
+        {
+          "id": "event-transpiration",
+          "targetId": "leaf-vapour",
+          "action": "reveal",
+          "cue": {
+            "blockId": "line-transpiration",
+            "phrase": "transpiration",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 550
+        }
+      ],
+      "onScreenText": [
+        "Plants release water vapour",
+        "Transpiration"
+      ],
+      "sourceRefs": [
+        "fixture-notes-water-cycle"
+      ]
+    },
+    {
+      "id": "scene-condensation",
+      "type": "process-flow",
+      "purpose": "Explain cooling, condensation, and cloud formation.",
+      "estimatedDurationMs": 11000,
+      "narration": [
+        {
+          "id": "line-condensation",
+          "text": "Higher in cooler air, water vapour cools and condenses into tiny droplets. Those droplets form clouds that can grow over time."
+        }
+      ],
+      "objects": [
+        {
+          "id": "vapour-particles",
+          "kind": "shape",
+          "label": "Water vapour"
+        },
+        {
+          "id": "droplet-group",
+          "kind": "icon",
+          "label": "Tiny droplets"
+        },
+        {
+          "id": "cloud-shape",
+          "kind": "shape",
+          "label": "Cloud"
+        }
+      ],
+      "events": [
+        {
+          "id": "event-cloud",
+          "targetId": "cloud-shape",
+          "action": "reveal",
+          "cue": {
+            "blockId": "line-condensation",
+            "phrase": "form clouds",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 550
+        }
+      ],
+      "onScreenText": [
+        "Cooling",
+        "Condensation",
+        "Clouds form"
+      ],
+      "sourceRefs": [
+        "fixture-notes-water-cycle"
+      ]
+    },
+    {
+      "id": "scene-precipitation",
+      "type": "labeled-diagram",
+      "purpose": "Show water returning to Earth as precipitation.",
+      "estimatedDurationMs": 9000,
+      "narration": [
+        {
+          "id": "line-precipitation",
+          "text": "When the droplets become heavy enough, water returns to the ground as precipitation, such as rain or snow."
+        }
+      ],
+      "objects": [
+        {
+          "id": "rain-cloud",
+          "kind": "icon",
+          "label": "Cloud"
+        },
+        {
+          "id": "rainfall",
+          "kind": "arrow",
+          "label": "Rain or snow"
+        }
+      ],
+      "events": [
+        {
+          "id": "event-rain",
+          "targetId": "rainfall",
+          "action": "reveal",
+          "cue": {
+            "blockId": "line-precipitation",
+            "phrase": "precipitation",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 450
+        }
+      ],
+      "onScreenText": [
+        "Precipitation",
+        "Rain or snow"
+      ],
+      "sourceRefs": [
+        "fixture-notes-water-cycle"
+      ]
+    },
+    {
+      "id": "scene-collection",
+      "type": "process-flow",
+      "purpose": "Show runoff, infiltration, and collection.",
+      "estimatedDurationMs": 11000,
+      "narration": [
+        {
+          "id": "line-collection",
+          "text": "Some water flows into streams and rivers, some soaks into soil, and some collects in lakes and oceans. Then the cycle continues."
+        }
+      ],
+      "objects": [
+        {
+          "id": "surface-flow",
+          "kind": "arrow",
+          "label": "Runoff"
+        },
+        {
+          "id": "soil-layer",
+          "kind": "shape",
+          "label": "Soil"
+        },
+        {
+          "id": "water-reservoir",
+          "kind": "container",
+          "label": "Lakes and oceans"
+        }
+      ],
+      "events": [
+        {
+          "id": "event-collection",
+          "targetId": "water-reservoir",
+          "action": "highlight",
+          "cue": {
+            "blockId": "line-collection",
+            "phrase": "lakes and oceans",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 500
+        }
+      ],
+      "onScreenText": [
+        "Runoff",
+        "Infiltration",
+        "Collection"
+      ],
+      "sourceRefs": [
+        "fixture-notes-water-cycle"
+      ]
+    },
+    {
+      "id": "scene-takeaway",
+      "type": "takeaway",
+      "purpose": "Summarize the cycle as a continuous movement of water.",
+      "estimatedDurationMs": 8000,
+      "narration": [
+        {
+          "id": "line-takeaway",
+          "text": "The water cycle keeps water moving between Earth's surface and the atmosphere. The same water can travel through these stages again and again."
+        }
+      ],
+      "objects": [
+        {
+          "id": "cycle-summary",
+          "kind": "shape",
+          "label": "Water cycle summary"
+        }
+      ],
+      "events": [
+        {
+          "id": "event-summary",
+          "targetId": "cycle-summary",
+          "action": "reveal",
+          "cue": {
+            "blockId": "line-takeaway",
+            "phrase": "again and again",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 500
+        }
+      ],
+      "onScreenText": [
+        "Water keeps moving",
+        "The cycle repeats"
+      ],
+      "sourceRefs": [
+        "fixture-notes-water-cycle"
+      ]
+    }
+  ],
+  "warnings": [
+    "Fixture plan for schema and workflow development only; factual and visual quality review is still required."
+  ]
+}

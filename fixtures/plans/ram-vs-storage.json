@@ -1,0 +1,268 @@
+{
+  "schemaVersion": "1.0",
+  "projectId": "ram-vs-storage",
+  "ownerId": "local",
+  "versionId": "ram-vs-storage-fixture-v1",
+  "parentVersionId": null,
+  "topic": "RAM vs Storage: Understanding Computer Memory",
+  "audience": "Beginners learning computer hardware",
+  "learningObjective": "Explain the fundamental differences between RAM (active, fast, volatile memory) and Storage (persistent, large capacity, non-volatile storage).",
+  "language": "en",
+  "voicePreset": "indian-english-female",
+  "sources": [
+    {
+      "id": "notes-ram-storage",
+      "text": "RAM is fast, temporary memory used by the CPU to hold currently active tasks. Storage like SSD or hard drive keeps files permanently even when power is turned off."
+    }
+  ],
+  "scenes": [
+    {
+      "id": "scene-hook",
+      "type": "title-hook",
+      "purpose": "Introduce RAM and storage with a relatable desk analogy.",
+      "estimatedDurationMs": 10000,
+      "narration": [
+        {
+          "id": "nar-hook-1",
+          "text": "Ever wonder why your computer needs both RAM and storage? They might sound similar, but they do completely different jobs."
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-hook-title",
+          "kind": "text",
+          "label": "RAM vs Storage"
+        },
+        {
+          "id": "obj-hook-icon",
+          "kind": "icon",
+          "label": "Computer Hardware"
+        }
+      ],
+      "events": [
+        {
+          "id": "ev-hook-1",
+          "targetId": "obj-hook-title",
+          "action": "reveal",
+          "cue": {
+            "blockId": "nar-hook-1",
+            "phrase": "RAM and storage",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 500
+        }
+      ],
+      "onScreenText": [
+        "RAM vs Storage",
+        "The Core Difference"
+      ],
+      "sourceRefs": ["notes-ram-storage"]
+    },
+    {
+      "id": "scene-ram-desk",
+      "type": "comparison",
+      "purpose": "Explain RAM as the active working desk.",
+      "estimatedDurationMs": 13000,
+      "narration": [
+        {
+          "id": "nar-ram-1",
+          "text": "Think of RAM as your physical desk surface. It holds the documents and tools you are using right now, giving the processor instant access."
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-ram-desk",
+          "kind": "container",
+          "label": "Working Desk"
+        },
+        {
+          "id": "obj-ram-speed",
+          "kind": "label",
+          "label": "Ultra-Fast Access"
+        }
+      ],
+      "events": [
+        {
+          "id": "ev-ram-1",
+          "targetId": "obj-ram-desk",
+          "action": "reveal",
+          "cue": {
+            "blockId": "nar-ram-1",
+            "phrase": "physical desk surface",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 400
+        },
+        {
+          "id": "ev-ram-2",
+          "targetId": "obj-ram-speed",
+          "action": "highlight",
+          "cue": {
+            "blockId": "nar-ram-1",
+            "phrase": "instant access",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 400
+        }
+      ],
+      "onScreenText": [
+        "RAM: The Active Desk",
+        "Ultra-Fast Working Memory"
+      ],
+      "sourceRefs": ["notes-ram-storage"]
+    },
+    {
+      "id": "scene-storage-cabinet",
+      "type": "comparison",
+      "purpose": "Explain storage as the long-term filing cabinet.",
+      "estimatedDurationMs": 13000,
+      "narration": [
+        {
+          "id": "nar-storage-1",
+          "text": "Storage, like an SSD or hard drive, is your filing cabinet. It holds huge amounts of data permanently, even when your computer is shut down."
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-storage-cabinet",
+          "kind": "container",
+          "label": "Filing Cabinet"
+        },
+        {
+          "id": "obj-storage-capacity",
+          "kind": "label",
+          "label": "Massive Long-Term Capacity"
+        }
+      ],
+      "events": [
+        {
+          "id": "ev-storage-1",
+          "targetId": "obj-storage-cabinet",
+          "action": "reveal",
+          "cue": {
+            "blockId": "nar-storage-1",
+            "phrase": "filing cabinet",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 400
+        },
+        {
+          "id": "ev-storage-2",
+          "targetId": "obj-storage-capacity",
+          "action": "emphasize",
+          "cue": {
+            "blockId": "nar-storage-1",
+            "phrase": "huge amounts of data",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 400
+        }
+      ],
+      "onScreenText": [
+        "Storage: Filing Cabinet",
+        "Permanent Data Preservation"
+      ],
+      "sourceRefs": ["notes-ram-storage"]
+    },
+    {
+      "id": "scene-volatility-contrast",
+      "type": "comparison",
+      "purpose": "Contrast volatile versus non-volatile memory.",
+      "estimatedDurationMs": 14000,
+      "narration": [
+        {
+          "id": "nar-vol-1",
+          "text": "The key difference is volatility. Turn off the power, and RAM is completely cleared. But your storage safely keeps every photo, game, and file intact."
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-volatile-ram",
+          "kind": "node",
+          "label": "Volatile: Cleared on Power Off"
+        },
+        {
+          "id": "obj-persistent-disk",
+          "kind": "node",
+          "label": "Non-Volatile: Retained Safely"
+        }
+      ],
+      "events": [
+        {
+          "id": "ev-vol-1",
+          "targetId": "obj-volatile-ram",
+          "action": "highlight",
+          "cue": {
+            "blockId": "nar-vol-1",
+            "phrase": "RAM is completely cleared",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 500
+        },
+        {
+          "id": "ev-vol-2",
+          "targetId": "obj-persistent-disk",
+          "action": "reveal",
+          "cue": {
+            "blockId": "nar-vol-1",
+            "phrase": "safely keeps every photo",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 500
+        }
+      ],
+      "onScreenText": [
+        "Volatile vs Non-Volatile",
+        "RAM Clears, Storage Keeps"
+      ],
+      "sourceRefs": ["notes-ram-storage"]
+    },
+    {
+      "id": "scene-takeaway",
+      "type": "takeaway",
+      "purpose": "Summarize the teamwork between RAM and storage.",
+      "estimatedDurationMs": 12000,
+      "narration": [
+        {
+          "id": "nar-takeaway-1",
+          "text": "In short: RAM gives you lightning speed for what you are doing now, while storage gives you lasting space for everything you want to keep."
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-takeaway-summary",
+          "kind": "text",
+          "label": "Speed vs Space"
+        }
+      ],
+      "events": [
+        {
+          "id": "ev-takeaway-1",
+          "targetId": "obj-takeaway-summary",
+          "action": "emphasize",
+          "cue": {
+            "blockId": "nar-takeaway-1",
+            "phrase": "lightning speed",
+            "occurrence": 1
+          },
+          "offsetMs": 0,
+          "durationMs": 400
+        }
+      ],
+      "onScreenText": [
+        "Summary: Speed vs Capacity",
+        "Working Memory & Permanent Storage"
+      ],
+      "sourceRefs": ["notes-ram-storage"]
+    }
+  ],
+  "warnings": []
+}
+
