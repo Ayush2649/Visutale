@@ -1,11 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateComparisonData, resolveComparisonConcepts, type ComparisonConcept } from "../src/video/scenes/ComparisonScene.js";
 import { renderSceneComponent } from "../src/video/MainVideo.js";
-import { resolveDiagramVariant } from "../src/video/scenes/LabeledDiagramScene.js";
+import {
+  resolveLegacyVariant,
+  validateVisualSelection,
+  CrossTopicContaminationError,
+} from "../src/video/registry/index.js";
+import {
+  validateGenericComparison,
+  type ComparisonConceptData,
+} from "../src/video/core/generic/GenericComparison.js";
+import {
+  validateSceneDomainSemantics,
+} from "../src/validation/semanticValidator.js";
 import { EvaporationScene, TranspirationScene } from "../src/video/topics/water-cycle/index.js";
-import { SortedArrayPrerequisite, BinarySearchStepSequence, SearchComparison } from "../src/video/topics/algorithms/index.js";
-import { RamArchitectureDiagram, StorageArchitectureDiagram } from "../src/video/topics/computer-architecture/index.js";
+import {
+  SortedArrayPrerequisite,
+  BinarySearchStepSequence,
+  SearchComparison,
+} from "../src/video/topics/algorithms/index.js";
+import {
+  RamArchitectureDiagram,
+  StorageArchitectureDiagram,
+} from "../src/video/topics/computer-architecture/index.js";
 import { GenericLabeledDiagram } from "../src/video/core/generic/index.js";
 import type { CompiledScene } from "../src/contracts/timeline.js";
 
@@ -26,10 +43,9 @@ function makeDummyScene(overrides: Partial<CompiledScene>): CompiledScene {
   };
 }
 
-test("validateComparisonData enforces distinct concepts and non-empty properties", () => {
-  const baseConcept: ComparisonConcept = {
+test("validateGenericComparison enforces distinct concepts and non-empty properties", () => {
+  const baseConcept: ComparisonConceptData = {
     title: "RAM",
-    analogyOrRole: "Working Desk",
     badge: "Fast & Volatile",
     icon: "⚡",
     color: "#2563EB",
@@ -40,14 +56,14 @@ test("validateComparisonData enforces distinct concepts and non-empty properties
 
   // Identical concepts rejected
   assert.throws(
-    () => validateComparisonData(baseConcept, { ...baseConcept }),
+    () => validateGenericComparison(baseConcept, { ...baseConcept }),
     /must be distinct/
   );
 
   // Missing properties rejected
   assert.throws(
     () =>
-      validateComparisonData(baseConcept, {
+      validateGenericComparison(baseConcept, {
         ...baseConcept,
         title: "Storage",
         properties: [],
@@ -56,108 +72,53 @@ test("validateComparisonData enforces distinct concepts and non-empty properties
   );
 });
 
-test("validateComparisonData catches cross-topic contamination", () => {
-  const searchConceptA: ComparisonConcept = {
-    title: "Linear Search",
-    analogyOrRole: "Sequential scan",
-    badge: "O(n)",
-    icon: "🔍",
-    color: "#0284C7",
-    bgColor: "#F0F7FF",
-    borderColor: "#BAE6FD",
-    properties: [{ label: "Method", value: "Checks each item" }],
-  };
+test("validateSceneDomainSemantics catches cross-topic domain contamination", () => {
+  // Search scene contaminated with RAM/Storage hardware properties
+  const contaminatedSearchScene = makeDummyScene({
+    sceneId: "scene-search-step",
+    type: "labeled-diagram",
+    purpose: "Demonstrate binary search traversal",
+    onScreenText: ["Binary Search Step", "RAM Chip bus link"],
+    objects: [{ id: "obj-ram-bus", kind: "node", label: "RAM Chip Bus Link" }],
+  });
 
-  // Search comparison contaminated with RAM/Storage hardware properties
-  const contaminatedSearchConceptB: ComparisonConcept = {
-    title: "Binary Search",
-    analogyOrRole: "Divide and conquer",
-    badge: "O(log n)",
-    icon: "⚡",
-    color: "#059669",
-    bgColor: "#ECFDF5",
-    borderColor: "#A7F3D0",
-    properties: [
-      { label: "Speed", value: "50 GB/s bus transfer" }, // Contamination!
-    ],
-  };
-
-  assert.throws(
-    () => validateComparisonData(searchConceptA, contaminatedSearchConceptB),
-    /Cross-topic contamination: RAM\/Storage hardware properties found in Search comparison/
+  const issues1 = validateSceneDomainSemantics(contaminatedSearchScene, "Binary Search");
+  assert.ok(issues1.length > 0, "Should detect hardware contamination in search scene");
+  assert.ok(
+    issues1.some((i) => i.message.includes("computer-architecture")),
+    "Should identify computer-architecture vocabulary contamination"
   );
 
-  // RAM comparison contaminated with Search algorithmic complexity
-  const ramConceptA: ComparisonConcept = {
-    title: "RAM",
-    analogyOrRole: "Working Desk",
-    badge: "Volatile",
-    icon: "⚡",
-    color: "#2563EB",
-    bgColor: "#EFF6FF",
-    borderColor: "#BFDBFE",
-    properties: [{ label: "Speed", value: "Fast" }],
-  };
+  // Photosynthesis scene contaminated with computer architecture vocabulary
+  const contaminatedPhotoScene = makeDummyScene({
+    sceneId: "scene-ingredients",
+    type: "labeled-diagram",
+    purpose: "Identify raw ingredients",
+    onScreenText: ["The 3 Key Ingredients", "CPU processor volatile memory"],
+    objects: [{ id: "obj-cpu", kind: "node", label: "CPU Processor" }],
+  });
 
-  const contaminatedStorageConceptB: ComparisonConcept = {
-    title: "Storage",
-    analogyOrRole: "Filing Cabinet",
-    badge: "Permanent",
-    icon: "🗄️",
-    color: "#D97706",
-    bgColor: "#FFFBEB",
-    borderColor: "#FDE68A",
-    properties: [
-      { label: "Complexity", value: "O(log n) access time" }, // Contamination!
-    ],
-  };
-
-  assert.throws(
-    () => validateComparisonData(ramConceptA, contaminatedStorageConceptB),
-    /Cross-topic contamination: Search algorithm properties found in RAM\/Storage comparison/
+  const issues2 = validateSceneDomainSemantics(contaminatedPhotoScene, "How Photosynthesis Works");
+  assert.ok(issues2.length > 0, "Should detect hardware contamination in photosynthesis scene");
+  assert.ok(
+    issues2.some((i) => i.message.includes("computer-architecture")),
+    "Should identify computer-architecture vocabulary in photosynthesis"
   );
-});
 
-test("resolveComparisonConcepts produces topic-accurate, uncontaminated concepts for RAM vs Storage", () => {
-  const scene = makeDummyScene({
-    sceneId: "scene-ram-storage-comparison",
-    type: "comparison",
-    purpose: "Direct comparison between RAM and SSD Storage",
+  // Uncontaminated scene has 0 issues
+  const cleanPhotoScene = makeDummyScene({
+    sceneId: "scene-ingredients",
+    type: "labeled-diagram",
+    purpose: "Identify raw ingredients",
+    onScreenText: ["The 3 Key Ingredients", "Sunlight + Water + CO2"],
     objects: [
-      { id: "ram-card", kind: "container", label: "RAM (Memory)" },
-      { id: "storage-card", kind: "container", label: "Storage (SSD/HDD)" },
+      { id: "obj-water", kind: "arrow", label: "Water via Roots" },
+      { id: "obj-co2", kind: "node", label: "CO2 via Stomata" },
     ],
   });
 
-  const { conceptA, conceptB } = resolveComparisonConcepts(scene, "RAM vs Storage");
-  assert.equal(conceptA.title, "RAM (Active Memory)");
-  assert.equal(conceptB.title, "Storage (SSD / Disk)");
-  assert.ok(conceptA.analogyOrRole.includes("Desk"));
-  assert.ok(conceptB.analogyOrRole.includes("Filing Cabinet") || conceptB.analogyOrRole.includes("Closet"));
-
-  // Must pass validation without throwing
-  assert.doesNotThrow(() => validateComparisonData(conceptA, conceptB));
-});
-
-test("resolveComparisonConcepts produces topic-accurate, uncontaminated concepts for Binary Search", () => {
-  const scene = makeDummyScene({
-    sceneId: "scene-complexity",
-    type: "comparison",
-    purpose: "Compare algorithmic efficiency of linear and binary search",
-    objects: [
-      { id: "comp-linear", kind: "container", label: "Linear Search" },
-      { id: "comp-binary", kind: "container", label: "Binary Search" },
-    ],
-  });
-
-  const { conceptA, conceptB } = resolveComparisonConcepts(scene, "Binary Search");
-  assert.equal(conceptA.title, "Linear Search");
-  assert.equal(conceptB.title, "Binary Search");
-  assert.ok(conceptA.badge.includes("O(n)"));
-  assert.ok(conceptB.badge.includes("O(log n)"));
-
-  // Must pass validation without throwing
-  assert.doesNotThrow(() => validateComparisonData(conceptA, conceptB));
+  const issues3 = validateSceneDomainSemantics(cleanPhotoScene, "How Photosynthesis Works");
+  assert.equal(issues3.length, 0, "Clean scene should have 0 semantic issues");
 });
 
 test("renderSceneComponent routes Binary Search scenes cleanly without Water Cycle contamination", () => {
@@ -261,8 +222,7 @@ test("renderSceneComponent throws exhaustive error on unsupported scene type", (
   );
 });
 
-test("resolveDiagramVariant resolves plant-ingredients for photosynthesis Scene 2 without RAM contamination", () => {
-  // Photosynthesis Scene 2 from approved plan
+test("resolveLegacyVariant resolves photosynthesis.ingredients for Scene 2 without RAM contamination", () => {
   const photoScene2 = makeDummyScene({
     sceneId: "scene-ingredients",
     type: "labeled-diagram",
@@ -276,16 +236,17 @@ test("resolveDiagramVariant resolves plant-ingredients for photosynthesis Scene 
     ],
   });
 
-  const variant = resolveDiagramVariant(photoScene2, "How Photosynthesis Works");
-  assert.equal(variant, "plant-ingredients");
-  // Regression check: "obj-plant-diagram" contains substring "ram", but MUST NOT resolve to ram-architecture!
-  assert.notEqual(variant, "ram-architecture");
-  assert.notEqual(variant, "storage-architecture");
-  assert.notEqual(variant, "binary-search-array");
+  const variant = resolveLegacyVariant(photoScene2, "How Photosynthesis Works");
+  assert.equal(variant, "photosynthesis.ingredients");
+
+  // Verify that cross-topic variant cannot be used
+  assert.throws(
+    () => validateVisualSelection("How Photosynthesis Works", "computer.ram-architecture"),
+    CrossTopicContaminationError
+  );
 });
 
-test("resolveDiagramVariant resolves generic for internal chloroplast detail scene", () => {
-  // Photosynthesis Scene 3 from approved plan
+test("resolveLegacyVariant resolves photosynthesis.chloroplast for internal organelle scene", () => {
   const photoScene3 = makeDummyScene({
     sceneId: "scene-chloroplast",
     type: "labeled-diagram",
@@ -294,17 +255,14 @@ test("resolveDiagramVariant resolves generic for internal chloroplast detail sce
     objects: [
       { id: "obj-cell-container", kind: "container", label: "Plant Cell Structure" },
       { id: "obj-chloroplast-node", kind: "node", label: "Chloroplast Organelle" },
-      { id: "obj-chlorophyll-pigment", kind: "shape", label: "Green Chlorophyll Pigment" },
     ],
   });
 
-  const variant = resolveDiagramVariant(photoScene3, "How Photosynthesis Works");
-  assert.equal(variant, "generic");
-  assert.notEqual(variant, "ram-architecture");
-  assert.notEqual(variant, "plant-ingredients");
+  const variant = resolveLegacyVariant(photoScene3, "How Photosynthesis Works");
+  assert.equal(variant, "photosynthesis.chloroplast");
 });
 
-test("resolveDiagramVariant only resolves ram-architecture for hardware topics with tokenized RAM objects", () => {
+test("resolveLegacyVariant only resolves computer.ram-architecture for hardware topics", () => {
   const hardwareRamScene = makeDummyScene({
     sceneId: "scene-how-ram-works",
     type: "labeled-diagram",
@@ -312,8 +270,8 @@ test("resolveDiagramVariant only resolves ram-architecture for hardware topics w
     objects: [{ id: "obj-3-ram-chip", kind: "container", label: "RAM Module" }],
   });
 
-  const variant1 = resolveDiagramVariant(hardwareRamScene, "RAM vs Storage");
-  assert.equal(variant1, "ram-architecture");
+  const variant1 = resolveLegacyVariant(hardwareRamScene, "RAM vs Storage");
+  assert.equal(variant1, "computer.ram-architecture");
 
   // Non-hardware topic with an object named 'diagram' or 'program' must NEVER resolve to ram-architecture
   const nonHardwareScene = makeDummyScene({
@@ -323,8 +281,7 @@ test("resolveDiagramVariant only resolves ram-architecture for hardware topics w
     objects: [{ id: "obj-diagram-flow", kind: "container", label: "Program Diagram" }],
   });
 
-  const variant2 = resolveDiagramVariant(nonHardwareScene, "Algorithm Complexity");
-  assert.notEqual(variant2, "ram-architecture");
-  assert.equal(variant2, "generic");
+  const variant2 = resolveLegacyVariant(nonHardwareScene, "Algorithm Complexity");
+  assert.notEqual(variant2, "computer.ram-architecture");
+  assert.equal(variant2, "generic.labeled-diagram");
 });
-

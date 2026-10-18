@@ -24,6 +24,7 @@ import {
   resolvePhraseTimingFromBlock,
 } from "./alignmentMapper.js";
 import { resolveLegacyVariant, validateVisualSelection } from "../video/registry/index.js";
+import { validateTimelineAssetIsolation } from "../storage/assetOwnershipValidator.js";
 
 export interface CompileOptions {
   fps?: number;
@@ -169,6 +170,7 @@ export function compilePlanTimeline(
         .join("\n")}`
     );
   }
+  validateTimelineAssetIsolation(timeline);
 
   return timeline;
 }

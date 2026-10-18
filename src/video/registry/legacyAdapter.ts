@@ -34,7 +34,7 @@ export function resolveLegacyVariant(scene: CompiledScene, topic?: string): Visu
     if (sceneId.includes("precip")) return "water-cycle.precipitation";
     if (sceneId.includes("collect")) return "water-cycle.collection";
     if (sceneType === "takeaway" || sceneId.includes("takeaway")) return "water-cycle.takeaway";
-    return "generic.process-flow";
+    return resolveGenericFallback(sceneType);
   }
 
   // 2. Photosynthesis Domain
@@ -45,7 +45,7 @@ export function resolveLegacyVariant(scene: CompiledScene, topic?: string): Visu
     if (sceneId.includes("reaction") || sceneId.includes("recipe") || sceneId.includes("chemical")) return "photosynthesis.reaction";
     if (sceneId.includes("impact") || sceneId.includes("fuel-air") || sceneId.includes("oxygen")) return "photosynthesis.impact";
     if (sceneType === "takeaway" || sceneId.includes("takeaway")) return "photosynthesis.takeaway";
-    return "generic.process-flow";
+    return resolveGenericFallback(sceneType);
   }
 
   // 3. Computer Architecture Domain
@@ -64,7 +64,7 @@ export function resolveLegacyVariant(scene: CompiledScene, topic?: string): Visu
       return "computer.ram-architecture";
     }
     if (sceneType === "takeaway" || sceneId.includes("takeaway")) return "computer.takeaway";
-    return "generic.process-flow";
+    return resolveGenericFallback(sceneType);
   }
 
   // 4. Algorithms Domain
@@ -74,10 +74,14 @@ export function resolveLegacyVariant(scene: CompiledScene, topic?: string): Visu
     if (sceneType === "step-sequence" || sceneId.includes("step")) return "algorithm.binary-search";
     if (sceneType === "comparison" || sceneId.includes("linear") || sceneId.includes("compar")) return "algorithm.search-comparison";
     if (sceneType === "takeaway" || sceneId.includes("takeaway")) return "algorithm.takeaway";
-    return "generic.step-sequence";
+    return resolveGenericFallback(sceneType);
   }
 
   // 5. Generic Fallback for New or Unmatched Topics
+  return resolveGenericFallback(sceneType);
+}
+
+function resolveGenericFallback(sceneType: string): VisualVariantId {
   switch (sceneType) {
     case "title-hook":
       return "generic.title-hook";

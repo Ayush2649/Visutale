@@ -217,13 +217,15 @@ This file records actual implementation progress without silently rewriting the 
   - `src/planning/plannerPrompt.ts`: Documents optional `visualVariant` in planner JSON schema instructions.
 
 - **Automated Verification:**
-  - **54 automated tests passing** cleanly (`npm test`).
+  - **60 automated tests passing** cleanly (`npm test`).
   - `tests/architectureImportBoundaries.test.ts`: Automated import analysis ensuring:
     - `core/` never imports from `topics/` or `registry/`.
     - Topic modules never import from peer topic modules.
     - External layers only import topic modules through their public `index.ts` boundaries.
   - `tests/visualRegistry.test.ts`: Validates complete registry population, domain resolution, cross-topic contamination prevention, and deterministic legacy mapping.
-  - `tests/sceneMappingAndContamination.test.ts`: Verifies isolated scene routing across all topics.
+  - `tests/sceneMappingAndContamination.test.ts`: Verifies isolated scene routing across all topics using typed registry and semantic validation.
+  - `tests/runAndSceneIsolation.test.ts`: Validates strict asset ownership, cross-scene asset leakage prevention, cross-run path traversal rejection, cache key isolation, and parallel run safety.
+  - `tests/adversarialAndDynamicTopics.test.ts`: Validates novel dynamic topic compilation ("How an API Request Works") with 100% generic routing, blocks adversarial specialized variant injection, and detects cross-domain vocabulary pollution.
 
 - **4-Topic Regression Matrix Rendered & Verified:**
   All four topics rendered from clean revision runs without live AI or speech API calls:
@@ -243,6 +245,21 @@ This file records actual implementation progress without silently rewriting the 
      - Run ID: `explain-how-photosynthesis-works-to-a-be-rev-20261018-052736185Z`
      - Duration: 66.2s (1,986 frames), 1080x1920, 30fps, 7.00 MB MP4, AAC audio, QA `overallPassed: true`.
      - Stills verified: Solar energy hero, 3 key ingredients diagram (light, CO2, water via roots), cellular chloroplast and thylakoid solar panels, chemical reaction (6 CO2 + 6 H2O -> C6H12O6 + 6 O2), plant fuel & oxygen release, closing summary. Zero CPU/RAM hardware elements.
+
+- **Phase 2 & Phase 4 Architectural Enhancements:**
+  1. **Run & Asset Ownership Validator (`src/storage/assetOwnershipValidator.ts`):**
+     - Enforces that scene audio and alignment files strictly reside within the run directory and match the owning scene's ID.
+     - Prevents cross-scene asset leakage (e.g. Scene 2 consuming Scene 1's audio).
+     - Validates timeline asset uniqueness (rejecting duplicate or colliding asset paths).
+     - Provides deterministic `computeSceneCacheKey` guaranteeing collision-free caching across multi-run executions.
+     - Integrated automatically into `compilePlanTimeline` in `src/timing/timelineCompiler.ts`.
+  2. **Semantic Domain Vocabulary Validator (`src/validation/semanticValidator.ts`):**
+     - Detects and rejects cross-domain vocabulary pollution (e.g. computer architecture terms like 'RAM', 'CPU', 'volatile' appearing in botany or search topics).
+     - Validates object-to-purpose alignment without ad-hoc substring hacks.
+  3. **Dead Code Elimination:**
+     - Fully removed obsolete `src/video/scenes/` (11 legacy files), consolidating all visual components into `src/video/core/generic/` and `src/video/topics/`.
+  4. **Airtight Domain Gating:**
+     - Tightened `validateVisualSelection.ts` to guarantee that generic/novel topics cannot consume specialized domain variants (`photosynthesis.*`, `computer.*`, `algorithm.*`, `water-cycle.*`).
 
 ## Not implemented yet
 

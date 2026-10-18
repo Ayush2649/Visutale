@@ -58,8 +58,8 @@ export function validateVisualSelection(
 
   const expectedDomain = resolveTopicDomain(topic);
 
-  // Generic variants are universal and always allowed
-  if (entry.domain === "generic" || expectedDomain === "generic") {
+  // Generic variants are universal and always allowed across any topic
+  if (entry.domain === "generic") {
     return { isValid: true, domain: entry.domain };
   }
 
