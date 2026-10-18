@@ -9,19 +9,21 @@ Local TypeScript prototype foundation for the project described by `PRD.md` and 
 
 If implementation details appear to conflict between these two documents, do not silently pick a value. Record the discrepancy and resolve it before the affected live integration.
 
-## Current milestone: P1 — Visual Skeleton
+## Current milestone: P3 — Topic Expansion and Revisions
 
 This milestone delivers:
 
-- Deterministic timeline compiler converting approved storyboard plans to contiguous 30 fps scene timings.
-- Reusable, typed React and Remotion visual motion-graphics system for vertical (1080 × 1920) video.
-- Animated visual components for all water-cycle scenes: title/hook, evaporation process flow, plant transpiration diagram, cooling/condensation cloud formation, precipitation rainfall, runoff/soil/reservoir collection, and final takeaway summary.
-- On-screen captions formatted for mobile viewing (2-line maximum, high-contrast bottom safe area).
-- CLI `render` command to bundle and render approved fixture plans into real, playable MP4 video on disk.
-- Machine QA validator checking MP4 decoding, dimensions, frame rate, duration bounds (60–90 seconds), audio status, and caption bounds.
-- 19 automated tests covering timeline compilation, caption grouping, boundary contiguity, media validation, approval enforcement, and plan mutation rejection.
-
-This milestone is a **deterministic fixture-rendering milestone**. It renders code-generated motion graphics without calling Gemini or ElevenLabs. Output audio is explicitly reported as a silent fixture placeholder. Live AI narration and character-level alignment are deferred to P2.
+- Visual components for two new topic types:
+  - `ComparisonScene`: Dual elevated card comparison (e.g. RAM vs Storage) with speed, volatility, and capacity differentiation, progressive springs, and comparison badges.
+  - `StepSequenceScene`: Algorithmic step-by-step procedure (e.g. Binary Search on `[4, 9, 15, 23, 38, 56, 72, 85, 94]`, target `72`), midpoint calculation, visual elimination of irrelevant half, and O(log n) efficiency badge.
+- Deterministic fixtures for `ram-vs-storage.json` and `binary-search.json`.
+- Live Gemini storyboard planning, human plan hash approval, ElevenLabs speech synthesis, audio-synchronized Remotion rendering, and media validation across all three core topics.
+- Branching revision and recovery engine:
+  - Visual-only revisions reusing speech audio artifacts without provider calls.
+  - Narration-affecting revisions invalidating audio and requiring explicit re-approval.
+  - Narrator change switching voice preset and re-synthesizing audio.
+  - Controlled render failure persisting error state and retrying without re-synthesizing valid audio.
+- 34 automated unit and integration tests passing.
 
 ## Prerequisites
 

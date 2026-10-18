@@ -48,7 +48,7 @@ export async function generateStoryboardWithGemini(
     projectId = slugify(topic),
     ownerId = "local-owner",
     versionId = "v1",
-    maxRetries = 2,
+    maxRetries = 5,
   } = options;
 
   if (!apiKey || apiKey.trim().length === 0) {
@@ -113,7 +113,8 @@ export async function generateStoryboardWithGemini(
 
         // Transient errors (429, 500, 503) retry with backoff
         if ((response.status === 429 || response.status >= 500) && attempts <= maxRetries) {
-          const delayMs = Math.min(1000 * Math.pow(2, attempts), 5000);
+          const delayMs = Math.min(2000 * Math.pow(2, attempts - 1), 10000);
+          process.stdout.write(`  [Gemini retry ${attempts}/${maxRetries}] Model busy (HTTP ${response.status}). Waiting ${delayMs / 1000}s before retrying...\n`);
           await sleep(delayMs);
           continue;
         }

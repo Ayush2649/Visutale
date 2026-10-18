@@ -10,6 +10,7 @@ export interface StepSequenceSceneProps {
   sceneIndex: number;
   totalScenes: number;
   globalProgress: number;
+  topic?: string;
 }
 
 // Trusted deterministic binary search dataset
@@ -21,14 +22,24 @@ export const StepSequenceScene: React.FC<StepSequenceSceneProps> = ({
   sceneIndex,
   totalScenes,
   globalProgress,
+  topic = "Algorithm: Binary Search",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Step 1: 0 to 90 frames (Inspect initial range [0..8], Mid=4 value 38)
-  // Step 2: 90 to 180 frames (Discard [0..4], range [5..8], Mid=6 value 72)
-  // Step 3: 180+ frames (Target match at index 6)
-  const step = frame < 90 ? 1 : frame < 180 ? 2 : 3;
+  const isExplicitStep1 = scene.sceneId.includes("first") || scene.sceneId.includes("step-1") || scene.sceneId.includes("step1");
+  const isExplicitStep2 = scene.sceneId.includes("second") || scene.sceneId.includes("step-2") || scene.sceneId.includes("step2");
+  const isExplicitStep3 = scene.sceneId.includes("third") || scene.sceneId.includes("step-3") || scene.sceneId.includes("step3");
+
+  let step = 1;
+  if (isExplicitStep1) {
+    step = 1;
+  } else if (isExplicitStep2 || isExplicitStep3) {
+    // If in second step, start by showing the narrowed range and confirm match
+    step = frame < 60 ? 2 : 3;
+  } else {
+    step = frame < 90 ? 1 : frame < 180 ? 2 : 3;
+  }
 
   let low = 0;
   let high = 8;
@@ -43,25 +54,25 @@ export const StepSequenceScene: React.FC<StepSequenceSceneProps> = ({
     comparisonText = `Narrowed range to indices [5..8]. New Mid = 6 (Value: 72)`;
     actionText = `Comparing array[6] (72) with Target (${TARGET}) ...`;
   } else if (step === 3) {
-    low = 6;
-    high = 6;
+    low = 5;
+    high = 8;
     mid = 6;
     comparisonText = `Match Confirmed! array[6] === ${TARGET}`;
     actionText = `Binary Search Completed in O(log n) steps!`;
   }
 
   const matchPulse = spring({
-    frame: Math.max(0, frame - 180),
+    frame: Math.max(0, frame - 40),
     fps,
     config: { damping: 10, stiffness: 120 },
   });
 
   return (
     <SceneContainer
-      topic="Algorithm: Binary Search"
+      topic={topic}
       sceneIndex={sceneIndex}
       totalScenes={totalScenes}
-      stepTitle={scene.onScreenText[0] ?? "Divide & Conquer"}
+      stepTitle={scene.onScreenText[0] ?? "Binary Search Step"}
       progress={globalProgress}
     >
       <VisualStageCard width={936} height={1040}>

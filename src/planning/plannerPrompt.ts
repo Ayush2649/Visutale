@@ -53,6 +53,7 @@ JSON Schema structure:
     {
       "id": string (e.g. "scene-hook", "scene-evaporation", etc.),
       "type": "title-hook" | "process-flow" | "labeled-diagram" | "comparison" | "step-sequence" | "takeaway",
+      "visualVariant"?: string,
       "purpose": string,
       "estimatedDurationMs": number (6000 - 15000),
       "onScreenText": string[],

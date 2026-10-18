@@ -1,24 +1,42 @@
 import React from "react";
 import { Sequence, useCurrentFrame, useVideoConfig, Audio } from "remotion";
 import type { CompiledTimeline, CompiledScene } from "../contracts/timeline.js";
-import { Captions } from "./primitives/Captions.js";
-import { TitleHookScene } from "./scenes/TitleHookScene.js";
-import { EvaporationScene } from "./scenes/EvaporationScene.js";
-import { TranspirationScene } from "./scenes/TranspirationScene.js";
-import { CondensationScene } from "./scenes/CondensationScene.js";
-import { PrecipitationScene } from "./scenes/PrecipitationScene.js";
-import { CollectionScene } from "./scenes/CollectionScene.js";
-import { TakeawayScene } from "./scenes/TakeawayScene.js";
-import { ComparisonScene } from "./scenes/ComparisonScene.js";
-import { StepSequenceScene } from "./scenes/StepSequenceScene.js";
+import { Captions } from "./core/Captions.js";
+import type { SceneProps } from "./core/contracts/visualTypes.js";
+import {
+  requireVisualComponent,
+  resolveLegacyVariant,
+  validateVisualSelection,
+  type VisualVariantId,
+} from "./registry/index.js";
 
 export interface MainVideoProps {
   timeline: CompiledTimeline;
 }
 
+export function inferTopic(timeline: CompiledTimeline): string {
+  if (timeline.topic) return timeline.topic;
+  const project = timeline.projectId?.toLowerCase() ?? "";
+  if (project.includes("water")) return "The Water Cycle";
+  if (project.includes("photo") || project.includes("plant")) return "How Photosynthesis Works";
+  if (/\bram\b/.test(project) || project.includes("storage")) return "RAM vs Storage";
+  if (project.includes("search") || project.includes("binary")) return "Binary Search";
+
+  for (const scene of timeline.scenes) {
+    const text = (scene.onScreenText || []).join(" ").toLowerCase();
+    const purpose = (scene.purpose || "").toLowerCase();
+    if (text.includes("water") || purpose.includes("water")) return "The Water Cycle";
+    if (text.includes("photo") || text.includes("plant") || purpose.includes("photo") || purpose.includes("plant")) return "How Photosynthesis Works";
+    if (/\bram\b/.test(text) || text.includes("storage") || /\bram\b/.test(purpose)) return "RAM vs Storage";
+    if (text.includes("binary") || text.includes("search") || purpose.includes("search")) return "Binary Search";
+  }
+  return "Technical Explainer";
+}
+
 export const MainVideo: React.FC<MainVideoProps> = ({ timeline }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
+  const topic = inferTopic(timeline);
 
   // Find active caption across all scenes
   let currentCaptionText: string | null = null;
@@ -56,7 +74,7 @@ export const MainVideo: React.FC<MainVideoProps> = ({ timeline }) => {
             durationInFrames={scene.durationInFrames}
             name={`${index + 1}-${scene.sceneId}`}
           >
-            {renderSceneComponent(scene, index, timeline.scenes.length, globalProgress)}
+            {renderSceneComponent(scene, index, timeline.scenes.length, globalProgress, topic)}
             {audioSrc && !scene.audio?.isFixture && (
               <Audio src={audioSrc} />
             )}
@@ -70,48 +88,29 @@ export const MainVideo: React.FC<MainVideoProps> = ({ timeline }) => {
   );
 };
 
-function renderSceneComponent(
+export function renderSceneComponent(
   scene: CompiledScene,
   sceneIndex: number,
   totalScenes: number,
-  globalProgress: number
+  globalProgress: number,
+  topic?: string
 ): React.ReactElement {
-  const props = {
+  const props: SceneProps = {
     scene,
     sceneIndex,
     totalScenes,
     globalProgress,
+    topic,
   };
 
-  // Specific explainer scenes
-  if (scene.sceneId === "scene-hook" || scene.sceneId.includes("hook")) return <TitleHookScene {...props} />;
-  if (scene.sceneId === "scene-evaporation" || scene.sceneId.includes("evaporation")) return <EvaporationScene {...props} />;
-  if (scene.sceneId === "scene-transpiration" || scene.sceneId.includes("transpiration")) return <TranspirationScene {...props} />;
-  if (scene.sceneId === "scene-condensation" || scene.sceneId.includes("condensation")) return <CondensationScene {...props} />;
-  if (scene.sceneId === "scene-precipitation" || scene.sceneId.includes("precipitation")) return <PrecipitationScene {...props} />;
-  if (scene.sceneId === "scene-collection" || scene.sceneId.includes("collection")) return <CollectionScene {...props} />;
-  if (scene.sceneId === "scene-takeaway" || scene.sceneId.includes("takeaway")) return <TakeawayScene {...props} />;
-  if (scene.sceneId.includes("ram") || scene.sceneId.includes("storage")) {
-    return <ComparisonScene {...props} />;
-  }
-  if (scene.sceneId.includes("search") || scene.sceneId.includes("binary")) {
-    return <StepSequenceScene {...props} />;
-  }
+  // Resolve visual variant: prefer explicit scene variant, fallback to deterministic legacy resolution
+  const variantId: VisualVariantId = (scene.visualVariant as VisualVariantId) ?? resolveLegacyVariant(scene, topic);
 
-  switch (scene.type) {
-    case "title-hook":
-      return <TitleHookScene {...props} />;
-    case "takeaway":
-      return <TakeawayScene {...props} />;
-    case "comparison":
-      return <ComparisonScene {...props} />;
-    case "step-sequence":
-      return <StepSequenceScene {...props} />;
-    case "process-flow":
-      return <EvaporationScene {...props} />;
-    case "labeled-diagram":
-      return <TranspirationScene {...props} />;
-    default:
-      return <TitleHookScene {...props} />;
-  }
+  // Validate visual selection against topic to guarantee 0% cross-topic contamination
+  validateVisualSelection(topic, variantId);
+
+  // Lookup the registered visual component
+  const Component = requireVisualComponent(variantId);
+
+  return <Component {...props} />;
 }

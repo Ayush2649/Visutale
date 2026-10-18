@@ -10,6 +10,7 @@ export interface SceneProps {
   sceneIndex: number;
   totalScenes: number;
   globalProgress: number;
+  topic?: string;
 }
 
 export const TitleHookScene: React.FC<SceneProps> = ({
@@ -17,11 +18,17 @@ export const TitleHookScene: React.FC<SceneProps> = ({
   sceneIndex,
   totalScenes,
   globalProgress,
+  topic = "Educational Explainer",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Entrance spring from frame 0 - title is immediately prominent!
+  const isPhotosynthesis = topic.toLowerCase().includes("photosynthesis");
+  const isWaterCycle = !isPhotosynthesis && (topic.toLowerCase().includes("water cycle") || (topic.toLowerCase().includes("water") && !topic.toLowerCase().includes("plant")));
+  const isHardware = topic.toLowerCase().includes("ram") || topic.toLowerCase().includes("storage");
+  const isAlgorithm = topic.toLowerCase().includes("binary") || topic.toLowerCase().includes("search");
+
+  // Entrance spring from frame 0 - title is immediately prominent
   const introSpring = spring({
     frame,
     fps,
@@ -31,9 +38,9 @@ export const TitleHookScene: React.FC<SceneProps> = ({
   const introOpacity = interpolate(introSpring, [0, 1], [0, 1]);
   const introScale = interpolate(introSpring, [0, 1], [0.95, 1]);
 
-  // Target event: "water cycle" cue emphasis (not initial appearance)
-  const titleEvent = scene.events.find((e) => e.targetId === "hook-title");
-  const cueFrame = titleEvent ? Math.max(0, titleEvent.startFrame - scene.startFrame) : 40;
+  // Target event cue emphasis
+  const primaryEvent = scene.events[0];
+  const cueFrame = primaryEvent ? Math.max(0, primaryEvent.startFrame - scene.startFrame) : 40;
 
   const cueSpring = spring({
     frame: Math.max(0, frame - cueFrame),
@@ -44,20 +51,19 @@ export const TitleHookScene: React.FC<SceneProps> = ({
   const titleEmphasisScale = interpolate(cueSpring, [0, 0.5, 1], [1, 1.05, 1]);
   const highlightGlow = interpolate(cueSpring, [0, 1], [0, 1]);
 
-  // Continuous subtle orbital movement of cycle markers
   const cycleRotation = (frame * 0.75) % 360;
-  // Subtle liquid wave inside droplet
   const waveShift = (frame * 3) % 120;
-  // Natural transition into evaporation in final frames
-  const transitionStart = scene.durationInFrames - 40;
-  const transitionProgress = Math.max(0, Math.min(1, (frame - transitionStart) / 40));
-  const sunWarmth = 1 + transitionProgress * 0.25;
+
+  const displayTitle = scene.onScreenText[0] ?? topic;
+  const displaySubtitle = scene.onScreenText[1] ?? scene.purpose;
+  const badgeLabel = scene.onScreenText[2] ?? (isWaterCycle ? "Earth Science" : isHardware ? "Computer Architecture" : isAlgorithm ? "Algorithm" : isPhotosynthesis ? "Plant Biology" : "Core Concept");
 
   return (
     <SceneContainer
-      topic="NamasteVideo Explainer"
+      topic={topic}
       sceneIndex={sceneIndex}
       totalScenes={totalScenes}
+      stepTitle={displayTitle}
       progress={globalProgress}
     >
       <VisualStageCard width={936} height={1040}>
@@ -75,10 +81,10 @@ export const TitleHookScene: React.FC<SceneProps> = ({
             position: "relative",
           }}
         >
-          {/* Top category badge */}
+          {/* Top category badges */}
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <AnimatedBadge
-              label="Earth Science Explainer"
+              label={badgeLabel}
               frame={frame}
               revealFrame={0}
               color={THEME.colors.waterBlueDark}
@@ -97,11 +103,11 @@ export const TitleHookScene: React.FC<SceneProps> = ({
                 fontWeight: 700,
               }}
             >
-              Continuous Natural Loop
+              {isWaterCycle ? "Continuous Natural Loop" : isHardware ? "RAM vs Storage" : isAlgorithm ? "Divide & Conquer" : isPhotosynthesis ? "Solar Powered Energy" : "Quick Explainer"}
             </div>
           </div>
 
-          {/* Prominent Title - immediately clear and centered */}
+          {/* Prominent Title - derived from actual approved topic & scene text */}
           <div
             style={{
               textAlign: "center",
@@ -113,201 +119,254 @@ export const TitleHookScene: React.FC<SceneProps> = ({
             <h1
               style={{
                 margin: 0,
-                fontSize: 54,
+                fontSize: 52,
                 fontWeight: 900,
                 color: THEME.colors.textPrimary,
                 letterSpacing: "-0.03em",
                 textShadow: highlightGlow > 0 ? `0 0 24px rgba(37,99,235,${highlightGlow * 0.3})` : "none",
               }}
             >
-              The Water Cycle
+              {displayTitle}
             </h1>
             <p
               style={{
-                margin: "10px 0 0 0",
-                fontSize: 26,
+                margin: "12px 0 0 0",
+                fontSize: 24,
                 fontWeight: 600,
                 color: THEME.colors.textSecondary,
                 maxWidth: 720,
                 lineHeight: 1.35,
               }}
             >
-              Earth's water is constantly moving in an endless natural loop driven by sunlight
+              {displaySubtitle}
             </p>
           </div>
 
-          {/* Central Hero: Meaningful animated water droplet with cycle orbit */}
-          <div
-            style={{
-              position: "relative",
-              width: 480,
-              height: 480,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            {/* Outer Circular Flow Orbit */}
-            <svg
-              width="460"
-              height="460"
-              viewBox="0 0 460 460"
-              style={{
-                position: "absolute",
-                transform: `rotate(${cycleRotation}deg)`,
-              }}
-            >
-              {/* Circular guide track */}
-              <circle
-                cx="230"
-                cy="230"
-                r="190"
-                fill="none"
-                stroke="#E2E8F0"
-                strokeWidth="10"
-                strokeDasharray="16 12"
-              />
-              {/* Active flowing arc */}
-              <path
-                d="M 230 40 A 190 190 0 0 1 420 230"
-                fill="none"
-                stroke={THEME.colors.waterBlue}
-                strokeWidth="12"
-                strokeLinecap="round"
-              />
-              <polygon points="420,230 408,210 432,210" fill={THEME.colors.waterBlue} />
-
-              <path
-                d="M 230 420 A 190 190 0 0 1 40 230"
-                fill="none"
-                stroke={THEME.colors.condensationCyan}
-                strokeWidth="12"
-                strokeLinecap="round"
-              />
-              <polygon points="40,230 52,250 28,250" fill={THEME.colors.condensationCyan} />
-            </svg>
-
-            {/* Stage markers positioned around the loop */}
-            <div style={{ position: "absolute", top: 12, fontWeight: 800, fontSize: 18, color: THEME.colors.sunAmber }}>
-              1. Evaporation
-            </div>
-            <div style={{ position: "absolute", right: 8, fontWeight: 800, fontSize: 18, color: THEME.colors.condensationCyan }}>
-              2. Condensation
-            </div>
-            <div style={{ position: "absolute", bottom: 12, fontWeight: 800, fontSize: 18, color: THEME.colors.waterBlueDark }}>
-              3. Precipitation
-            </div>
-            <div style={{ position: "absolute", left: 16, fontWeight: 800, fontSize: 18, color: THEME.colors.plantGreenDark }}>
-              4. Collection
-            </div>
-
-            {/* Central Illustrated Water Droplet Container */}
+          {/* Hero Visual Area: Topic-Specific */}
+          {isWaterCycle ? (
+            /* Water Droplet Orbit for Water Cycle only */
             <div
               style={{
-                width: 250,
-                height: 310,
                 position: "relative",
+                width: 480,
+                height: 480,
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
               }}
             >
-              <svg width="240" height="300" viewBox="0 0 200 250">
-                <defs>
-                  <linearGradient id="dropletGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#60A5FA" />
-                    <stop offset="50%" stopColor="#2563EB" />
-                    <stop offset="100%" stopColor="#1D4ED8" />
-                  </linearGradient>
-                  <clipPath id="dropletClip">
-                    <path d="M 100 10 C 130 65 185 130 185 180 C 185 220 145 245 100 245 C 55 245 15 220 15 180 C 15 130 70 65 100 10 Z" />
-                  </clipPath>
-                </defs>
-
-                {/* Droplet Outline and Base Fill */}
-                <path
-                  d="M 100 10 C 130 65 185 130 185 180 C 185 220 145 245 100 245 C 55 245 15 220 15 180 C 15 130 70 65 100 10 Z"
-                  fill="url(#dropletGrad)"
-                  stroke="#1E40AF"
-                  strokeWidth="6"
-                />
-
-                {/* Internal Liquid Wave (clipped to droplet interior) */}
-                <g clipPath="url(#dropletClip)">
-                  {/* Sun warmth at the top of droplet */}
-                  <circle cx="100" cy="55" r={22 * sunWarmth} fill="#FDE047" opacity="0.9" />
-                  {/* Inner Water Surface Wave */}
-                  <path
-                    d={`M -20 160 Q ${20 + waveShift} 145 ${60 + waveShift} 160 T ${140 + waveShift} 160 T ${220 + waveShift} 160 L 220 250 L -20 250 Z`}
-                    fill="#1E3A8A"
-                    opacity="0.6"
-                  />
-                  {/* Rising vapour bubbles inside droplet */}
-                  {[0, 1, 2].map((i) => {
-                    const bubbleY = 220 - ((frame * 2 + i * 40) % 110);
-                    const bubbleX = 80 + i * 20;
-                    return (
-                      <circle
-                        key={i}
-                        cx={bubbleX}
-                        cy={bubbleY}
-                        r="5"
-                        fill="#FFFFFF"
-                        opacity="0.75"
-                      />
-                    );
-                  })}
-                </g>
-
-                {/* Droplet glossy highlight */}
-                <path
-                  d="M 100 30 C 80 75 45 125 45 170 C 45 180 50 190 55 195 C 50 185 45 170 50 140 C 60 90 90 40 100 30 Z"
-                  fill="#FFFFFF"
-                  opacity="0.4"
-                />
+              <svg width="460" height="460" viewBox="0 0 460 460" style={{ position: "absolute", transform: `rotate(${cycleRotation}deg)` }}>
+                <circle cx="230" cy="230" r="190" fill="none" stroke="#DBEAFE" strokeWidth="3" strokeDasharray="10 8" />
+                <circle cx="230" cy="40" r="14" fill={THEME.colors.sunAmber} />
+                <circle cx="420" cy="230" r="14" fill={THEME.colors.condensationCyan} />
+                <circle cx="230" cy="420" r="14" fill={THEME.colors.waterBlue} />
+                <circle cx="40" cy="230" r="14" fill={THEME.colors.plantGreen} />
               </svg>
-            </div>
-          </div>
-
-          {/* Bottom guidance card - sets educational context */}
-          <div
-            style={{
-              width: "100%",
-              backgroundColor: "#F1F5F9",
-              border: `1.5px solid ${THEME.colors.border}`,
-              borderRadius: 20,
-              padding: "16px 28px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              boxSizing: "border-box",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div
                 style={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: "50%",
-                  backgroundColor: THEME.colors.sunAmber,
+                  width: 280,
+                  height: 340,
+                  borderRadius: "50% 50% 50% 50% / 60% 60% 40% 40%",
+                  background: "linear-gradient(180deg, #60A5FA 0%, #2563EB 60%, #1D4ED8 100%)",
+                  boxShadow: "0 20px 45px rgba(37,99,235,0.28)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                  overflow: "hidden",
                 }}
-              />
-              <span style={{ fontSize: 22, fontWeight: 700, color: THEME.colors.textPrimary }}>
-                How water cycles between Earth's surface and atmosphere
-              </span>
+              >
+                <div style={{ fontSize: 56, marginBottom: 10 }}>💧</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: "#FFFFFF", letterSpacing: "0.04em" }}>WATER CYCLE</div>
+              </div>
             </div>
+          ) : isHardware ? (
+            /* RAM vs Storage Device Spec Sheet Hero */
             <div
               style={{
-                backgroundColor: THEME.colors.waterBlue,
-                color: "#FFFFFF",
-                padding: "6px 18px",
-                borderRadius: 12,
-                fontSize: 18,
-                fontWeight: 800,
+                width: "100%",
+                maxWidth: 680,
+                backgroundColor: "#FFFFFF",
+                border: `2px solid ${THEME.colors.border}`,
+                borderRadius: 24,
+                padding: "32px 36px",
+                boxShadow: "0 12px 32px rgba(15,23,42,0.06)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 20,
               }}
             >
-              Start Explainer ➔
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span style={{ fontSize: 32 }}>📱</span>
+                <div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: THEME.colors.textPrimary }}>Device Specification Sheet</div>
+                  <div style={{ fontSize: 16, color: THEME.colors.textMuted }}>Why do phones and laptops list two different numbers?</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 16 }}>
+                <div
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#EFF6FF",
+                    border: `2px solid ${THEME.colors.waterBlue}`,
+                    borderRadius: 16,
+                    padding: "16px 20px",
+                  }}
+                >
+                  <div style={{ fontSize: 15, fontWeight: 700, color: THEME.colors.waterBlueDark }}>RAM (Short-Term)</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: THEME.colors.waterBlueDeep, marginTop: 4 }}>8 GB RAM</div>
+                  <div style={{ fontSize: 14, color: THEME.colors.textMuted, marginTop: 4 }}>Active task speed</div>
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#FAF5FF",
+                    border: "2px solid #C084FC",
+                    borderRadius: 16,
+                    padding: "16px 20px",
+                  }}
+                >
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#7E22CE" }}>Storage (Long-Term)</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: "#581C87", marginTop: 4 }}>128 GB Storage</div>
+                  <div style={{ fontSize: 14, color: THEME.colors.textMuted, marginTop: 4 }}>Permanent file space</div>
+                </div>
+              </div>
             </div>
+          ) : isAlgorithm ? (
+            /* Binary Search Divide & Conquer Hero */
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 680,
+                backgroundColor: "#FFFFFF",
+                border: `2px solid ${THEME.colors.border}`,
+                borderRadius: 24,
+                padding: "32px 36px",
+                boxShadow: "0 12px 32px rgba(15,23,42,0.06)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 20,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span style={{ fontSize: 36 }}>⚡</span>
+                <div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: THEME.colors.textPrimary }}>Divide & Conquer Algorithm</div>
+                  <div style={{ fontSize: 16, color: THEME.colors.textMuted }}>Cuts search range in half at every step</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, width: "100%", justifyContent: "center" }}>
+                {[4, 9, 15, 23, 38, 56, 72, 85, 94].map((num, i) => (
+                  <div
+                    key={`hero-tile-${i}`}
+                    style={{
+                      flex: 1,
+                      height: 64,
+                      backgroundColor: num === 72 ? "#EFF6FF" : num === 38 ? "#FEF3C7" : "#F8FAFC",
+                      border: `2px solid ${num === 72 ? THEME.colors.waterBlue : num === 38 ? THEME.colors.sunAmber : THEME.colors.border}`,
+                      borderRadius: 10,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 18,
+                      fontWeight: 800,
+                      color: num === 72 ? THEME.colors.waterBlue : num === 38 ? "#B45309" : THEME.colors.textPrimary,
+                    }}
+                  >
+                    {num}
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <span style={{ backgroundColor: "#FEF3C7", color: "#B45309", padding: "4px 14px", borderRadius: 8, fontSize: 14, fontWeight: 700 }}>
+                  Midpoint: 38
+                </span>
+                <span style={{ backgroundColor: "#ECFDF5", color: THEME.colors.plantGreenDark, padding: "4px 14px", borderRadius: 8, fontSize: 14, fontWeight: 700 }}>
+                  Target: 72 Found in 2 Steps
+                </span>
+              </div>
+            </div>
+          ) : isPhotosynthesis ? (
+            /* Photosynthesis Energy Transformation Hero */
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 720,
+                backgroundColor: "#FFFFFF",
+                border: `2px solid ${THEME.colors.plantGreen}`,
+                borderRadius: 24,
+                padding: "28px 24px",
+                boxShadow: "0 12px 32px rgba(15,23,42,0.06)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 18,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span style={{ fontSize: 36 }}>🌿</span>
+                <div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: THEME.colors.textPrimary }}>Solar Energy Transformation</div>
+                  <div style={{ fontSize: 16, color: THEME.colors.textMuted }}>How plants make food from sunlight, water & air</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10, width: "100%", justifyContent: "center", alignItems: "center" }}>
+                <div style={{ flex: 1, backgroundColor: "#FEF3C7", border: "2px solid #FCD34D", borderRadius: 16, padding: "12px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 26 }}>☀️</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: "#B45309", marginTop: 4 }}>Sunlight</div>
+                  <div style={{ fontSize: 12, color: THEME.colors.textMuted }}>Light Energy</div>
+                </div>
+                <div style={{ flex: 1, backgroundColor: "#EFF6FF", border: `2px solid ${THEME.colors.waterBlue}`, borderRadius: 16, padding: "12px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 26 }}>💧</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: THEME.colors.waterBlueDeep, marginTop: 4 }}>Water</div>
+                  <div style={{ fontSize: 12, color: THEME.colors.textMuted }}>Via Roots</div>
+                </div>
+                <div style={{ flex: 1, backgroundColor: "#F1F5F9", border: `2px solid ${THEME.colors.border}`, borderRadius: 16, padding: "12px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 26 }}>💨</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: THEME.colors.textPrimary, marginTop: 4 }}>CO2</div>
+                  <div style={{ fontSize: 12, color: THEME.colors.textMuted }}>From Air</div>
+                </div>
+                <div style={{ fontSize: 22, color: THEME.colors.plantGreenDark, fontWeight: 900 }}>
+                  ➔
+                </div>
+                <div style={{ flex: 1, backgroundColor: "#ECFDF5", border: "2px solid #A7F3D0", borderRadius: 16, padding: "12px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 26 }}>🍃</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: THEME.colors.plantGreenDark, marginTop: 4 }}>Glucose</div>
+                  <div style={{ fontSize: 12, color: THEME.colors.textMuted }}>Plant Food</div>
+                </div>
+                <div style={{ flex: 1, backgroundColor: "#ECFEFF", border: "2px solid #A5F3FC", borderRadius: 16, padding: "12px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 26 }}>🌬️</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: "#0E7490", marginTop: 4 }}>Oxygen</div>
+                  <div style={{ fontSize: 12, color: THEME.colors.textMuted }}>Released</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Generic Explainer Visual Objects */
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
+              {scene.objects.map((obj) => (
+                <div
+                  key={obj.id}
+                  style={{
+                    backgroundColor: "#F1F5F9",
+                    padding: "16px 24px",
+                    borderRadius: 16,
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: THEME.colors.textPrimary,
+                  }}
+                >
+                  {obj.label}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Bottom helper text */}
+          <div style={{ fontSize: 18, color: THEME.colors.textMuted, fontWeight: 600 }}>
+            {scene.objects.length} Core Elements • 60-90s Visual Explainer
           </div>
         </div>
       </VisualStageCard>

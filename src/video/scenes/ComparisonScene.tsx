@@ -5,11 +5,218 @@ import { THEME } from "../theme.js";
 import { SceneContainer } from "../primitives/SceneContainer.js";
 import { VisualStageCard, AnimatedBadge } from "../primitives/CommonPrimitives.js";
 
+export interface ComparisonProperty {
+  label: string;
+  value: string;
+}
+
+export interface ComparisonConcept {
+  title: string;
+  analogyOrRole: string;
+  badge: string;
+  icon: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  properties: ComparisonProperty[];
+}
+
 export interface ComparisonSceneProps {
   scene: CompiledScene;
   sceneIndex: number;
   totalScenes: number;
   globalProgress: number;
+  topic?: string;
+}
+
+export function validateComparisonData(conceptA: ComparisonConcept, conceptB: ComparisonConcept): void {
+  if (!conceptA.title || !conceptB.title) {
+    throw new Error("Comparison must contain two non-empty concept titles.");
+  }
+  if (conceptA.title.trim().toLowerCase() === conceptB.title.trim().toLowerCase()) {
+    throw new Error(`Comparison concepts must be distinct: got '${conceptA.title}' for both.`);
+  }
+  if (conceptA.properties.length === 0 || conceptB.properties.length === 0) {
+    throw new Error("Each comparison concept must contain at least one property.");
+  }
+
+  // Cross-domain contamination validation
+  const isSearchComparison =
+    conceptA.title.toLowerCase().includes("search") ||
+    conceptB.title.toLowerCase().includes("search");
+
+  if (isSearchComparison) {
+    const allPropsText = [...conceptA.properties, ...conceptB.properties]
+      .map((p) => `${p.label} ${p.value}`)
+      .join(" ")
+      .toLowerCase();
+
+    if (
+      allPropsText.includes("volatile") ||
+      allPropsText.includes("50 gb/s") ||
+      allPropsText.includes("filing cabinet") ||
+      allPropsText.includes("ssd")
+    ) {
+      throw new Error("Cross-topic contamination: RAM/Storage hardware properties found in Search comparison.");
+    }
+  }
+
+  const isRamStorageComparison =
+    conceptA.title.toLowerCase().includes("ram") ||
+    conceptA.title.toLowerCase().includes("desk") ||
+    conceptB.title.toLowerCase().includes("storage") ||
+    conceptB.title.toLowerCase().includes("cabinet");
+
+  if (isRamStorageComparison) {
+    const allPropsText = [...conceptA.properties, ...conceptB.properties]
+      .map((p) => `${p.label} ${p.value}`)
+      .join(" ")
+      .toLowerCase();
+
+    if (
+      allPropsText.includes("o(log n)") ||
+      allPropsText.includes("o(n)") ||
+      allPropsText.includes("linear search") ||
+      allPropsText.includes("binary search")
+    ) {
+      throw new Error("Cross-topic contamination: Search algorithm properties found in RAM/Storage comparison.");
+    }
+  }
+}
+
+export function resolveComparisonConcepts(scene: CompiledScene, topic?: string): {
+  conceptA: ComparisonConcept;
+  conceptB: ComparisonConcept;
+  headline: string;
+} {
+  const isSearchTopic =
+    (topic && topic.toLowerCase().includes("search")) ||
+    scene.sceneId.includes("complexity") ||
+    scene.onScreenText.some((t) => t.toLowerCase().includes("linear") || t.toLowerCase().includes("binary")) ||
+    scene.objects.some((o) => o.label.toLowerCase().includes("linear") || o.label.toLowerCase().includes("binary"));
+
+  const isRamTopic =
+    (topic && (topic.toLowerCase().includes("ram") || topic.toLowerCase().includes("storage"))) ||
+    scene.sceneId.includes("ram") ||
+    scene.sceneId.includes("storage") ||
+    scene.sceneId.includes("desk") ||
+    scene.objects.some((o) => o.label.toLowerCase().includes("ram") || o.label.toLowerCase().includes("storage"));
+
+  let conceptA: ComparisonConcept;
+  let conceptB: ComparisonConcept;
+  let headline = scene.purpose || "Direct Comparison";
+
+  if (isSearchTopic) {
+    headline = "Search Efficiency: Linear vs Binary Search";
+    const titleA = scene.objects.find((o) => o.id.includes("linear"))?.label ?? scene.onScreenText[0] ?? "Linear Search";
+    const titleB = scene.objects.find((o) => o.id.includes("binary"))?.label ?? scene.onScreenText[1] ?? "Binary Search";
+
+    conceptA = {
+      title: titleA,
+      analogyOrRole: "Sequential Checking (One-by-One)",
+      badge: "O(n) Steps",
+      icon: "🔍",
+      color: THEME.colors.waterBlueDeep,
+      bgColor: "#F0F7FF",
+      borderColor: "#BFDBFE",
+      properties: [
+        { label: "Search Method", value: "Checks each item sequentially" },
+        { label: "Target 72 Checks", value: "Takes up to 7 comparisons" },
+        { label: "Worst Case", value: "Checks all n elements (Slow)" },
+      ],
+    };
+
+    conceptB = {
+      title: titleB,
+      analogyOrRole: "Divide & Conquer (Halving Search Range)",
+      badge: "O(log n) Steps",
+      icon: "⚡",
+      color: THEME.colors.plantGreenDark,
+      bgColor: "#ECFDF5",
+      borderColor: "#A7F3D0",
+      properties: [
+        { label: "Search Method", value: "Eliminates half at each midpoint" },
+        { label: "Target 72 Checks", value: "Found in only 2 quick steps" },
+        { label: "Worst Case", value: "Logarithmic: O(log n) (Ultra-Fast)" },
+      ],
+    };
+  } else if (isRamTopic) {
+    const isDeskAnalogy = scene.sceneId.includes("desk") || scene.objects.some((o) => o.label.includes("Desk"));
+    headline = isDeskAnalogy
+      ? "The Office Analogy: Desk vs Filing Cabinet"
+      : "Direct Comparison: Working Memory vs Permanent Storage";
+
+    const titleA = isDeskAnalogy ? "RAM: Office Desk" : "RAM (Active Memory)";
+    const titleB = isDeskAnalogy ? "Storage: Filing Cabinet" : "Storage (SSD / Disk)";
+
+    conceptA = {
+      title: titleA,
+      analogyOrRole: "Active Workspace (The Desk)",
+      badge: "Volatile",
+      icon: "⚡",
+      color: THEME.colors.waterBlueDeep,
+      bgColor: "#F0F7FF",
+      borderColor: "#BFDBFE",
+      properties: [
+        { label: "Primary Role", value: "Holds open apps & active data" },
+        { label: "Access Speed", value: "~50 GB/s (Ultra-Fast Direct Link)" },
+        { label: "On Power Off", value: "Resets empty when device shuts down" },
+      ],
+    };
+
+    conceptB = {
+      title: titleB,
+      analogyOrRole: "Long-Term Archive (Filing Cabinet)",
+      badge: "Non-Volatile",
+      icon: "💾",
+      color: "#581C87",
+      bgColor: "#FAF5FF",
+      borderColor: "#E9D5FF",
+      properties: [
+        { label: "Primary Role", value: "Saves photos, videos, apps & OS" },
+        { label: "Capacity", value: "128 GB - 2 TB (Large Volume)" },
+        { label: "On Power Off", value: "Retains all data safely forever" },
+      ],
+    };
+  } else {
+    // Generic comparison between two concepts
+    const candA = scene.objects[0];
+    const candB = scene.objects[1];
+    const titleA = candA?.label ?? scene.onScreenText[0] ?? "Concept A";
+    const titleB = candB?.label ?? scene.onScreenText[1] ?? "Concept B";
+
+    const remainingObjects = scene.objects.slice(2);
+    const half = Math.ceil(remainingObjects.length / 2);
+    const propsA = remainingObjects.slice(0, half).map((o) => ({ label: o.kind, value: o.label }));
+    const propsB = remainingObjects.slice(half).map((o) => ({ label: o.kind, value: o.label }));
+
+    conceptA = {
+      title: titleA,
+      analogyOrRole: candA?.kind ?? "Concept A",
+      badge: "Aspect A",
+      icon: "🔹",
+      color: THEME.colors.waterBlueDeep,
+      bgColor: "#F0F7FF",
+      borderColor: "#BFDBFE",
+      properties: propsA.length > 0 ? propsA : [{ label: "Feature", value: "Primary characteristics of " + titleA }],
+    };
+
+    conceptB = {
+      title: titleB,
+      analogyOrRole: candB?.kind ?? "Concept B",
+      badge: "Aspect B",
+      icon: "🔸",
+      color: "#581C87",
+      bgColor: "#FAF5FF",
+      borderColor: "#E9D5FF",
+      properties: propsB.length > 0 ? propsB : [{ label: "Feature", value: "Primary characteristics of " + titleB }],
+    };
+  }
+
+  // Validate to guarantee correctness
+  validateComparisonData(conceptA, conceptB);
+
+  return { conceptA, conceptB, headline };
 }
 
 export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
@@ -17,9 +224,12 @@ export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
   sceneIndex,
   totalScenes,
   globalProgress,
+  topic = "Direct Comparison",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+
+  const { conceptA, conceptB, headline } = resolveComparisonConcepts(scene, topic);
 
   // Progressive reveal animations
   const card1Spring = spring({
@@ -29,60 +239,48 @@ export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
   });
 
   const card2Spring = spring({
-    frame: Math.max(0, frame - 30), // Reveals 1s into scene
+    frame: Math.max(0, frame - 25),
     fps,
     config: { damping: 15, stiffness: 120 },
   });
 
-  const contrastSpring = spring({
-    frame: Math.max(0, frame - 70), // Comparison highlight
-    fps,
-    config: { damping: 14, stiffness: 100 },
-  });
-
-  // Check for specific event highlights
   const hasHighlightEvent = scene.events.some(
     (ev) => frame >= ev.startFrame && frame <= ev.endFrame && (ev.action === "highlight" || ev.action === "emphasize")
   );
 
-  // Extract titles and labels from onScreenText or fallback to RAM vs Storage
-  const titleA = scene.onScreenText[0] ?? "RAM (Active Memory)";
-  const titleB = scene.onScreenText[1] ?? "Storage (SSD / Disk)";
-  const headline = scene.purpose || "Comparing Working Memory vs Long-Term Storage";
-
   return (
     <SceneContainer
-      topic="Computer Architecture"
+      topic={topic}
       sceneIndex={sceneIndex}
       totalScenes={totalScenes}
-      stepTitle={scene.onScreenText[2] ?? "Key Differences"}
+      stepTitle={scene.onScreenText[0] ?? "Direct Comparison"}
       progress={globalProgress}
     >
       <VisualStageCard width={936} height={1040}>
         {/* Header section */}
-        <div style={{ padding: "32px 40px 16px 40px" }}>
+        <div style={{ padding: "32px 40px 14px 40px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
+            <div style={{ maxWidth: 680 }}>
               <h2
                 style={{
                   margin: 0,
-                  fontSize: 36,
+                  fontSize: 34,
                   fontWeight: 800,
                   color: THEME.colors.textPrimary,
                   letterSpacing: "-0.02em",
                 }}
               >
-                {headline.length > 55 ? headline.slice(0, 52) + "..." : headline}
+                {headline}
               </h2>
               <p
                 style={{
-                  margin: "8px 0 0 0",
-                  fontSize: 22,
+                  margin: "6px 0 0 0",
+                  fontSize: 20,
                   color: THEME.colors.textMuted,
                   fontWeight: 500,
                 }}
               >
-                Speed, volatility, and capacity compared
+                Side-by-side core trade-offs & roles
               </p>
             </div>
             <AnimatedBadge
@@ -95,38 +293,37 @@ export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
           </div>
         </div>
 
-        {/* Comparison Dual Cards */}
+        {/* Dual Cards */}
         <div
           style={{
             flex: 1,
             padding: "8px 40px 24px 40px",
             display: "flex",
             flexDirection: "column",
-            gap: 20,
+            gap: 16,
             justifyContent: "center",
           }}
         >
-          {/* Top Card: Concept A (RAM / Working Memory) */}
+          {/* Concept A Card */}
           <div
             style={{
               opacity: interpolate(card1Spring, [0, 1], [0, 1]),
-              transform: `translateY(${interpolate(card1Spring, [0, 1], [24, 0])}px)`,
-              backgroundColor: "#F0F7FF",
-              border: `2px solid ${hasHighlightEvent ? THEME.colors.waterBlue : "#BFDBFE"}`,
-              borderRadius: 24,
-              padding: "24px 28px",
-              boxShadow: "0 6px 16px rgba(37, 99, 235, 0.06)",
-              transition: "border 0.2s ease",
+              transform: `translateY(${interpolate(card1Spring, [0, 1], [20, 0])}px)`,
+              backgroundColor: conceptA.bgColor,
+              border: `2px solid ${hasHighlightEvent ? THEME.colors.waterBlue : conceptA.borderColor}`,
+              borderRadius: 22,
+              padding: "20px 26px",
+              boxShadow: "0 4px 14px rgba(37, 99, 235, 0.05)",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
+                    width: 42,
+                    height: 42,
                     borderRadius: 12,
-                    backgroundColor: THEME.colors.waterBlue,
+                    backgroundColor: conceptA.color,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -135,44 +332,49 @@ export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
                     fontWeight: 800,
                   }}
                 >
-                  ⚡
+                  {conceptA.icon}
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: THEME.colors.waterBlueDeep }}>
-                    {titleA}
+                  <h3 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: conceptA.color }}>
+                    {conceptA.title}
                   </h3>
-                  <span style={{ fontSize: 18, color: THEME.colors.waterBlueDark, fontWeight: 600 }}>
-                    The Active Desk Analogy
+                  <span style={{ fontSize: 16, color: THEME.colors.textSecondary, fontWeight: 600 }}>
+                    {conceptA.analogyOrRole}
                   </span>
                 </div>
               </div>
               <span
                 style={{
-                  backgroundColor: "#DBEAFE",
-                  color: THEME.colors.waterBlueDark,
+                  backgroundColor: "#FFFFFF",
+                  color: conceptA.color,
+                  border: `1.5px solid ${conceptA.borderColor}`,
                   padding: "4px 12px",
                   borderRadius: 8,
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: 700,
                 }}
               >
-                Volatile
+                {conceptA.badge}
               </span>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 14 }}>
-              <div style={{ backgroundColor: "#FFFFFF", padding: "10px 14px", borderRadius: 12, border: "1px solid #DBEAFE" }}>
-                <div style={{ fontSize: 14, color: THEME.colors.textMuted, fontWeight: 600 }}>Speed</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: THEME.colors.textPrimary }}>~50 GB/s (Ultra Fast)</div>
-              </div>
-              <div style={{ backgroundColor: "#FFFFFF", padding: "10px 14px", borderRadius: 12, border: "1px solid #DBEAFE" }}>
-                <div style={{ fontSize: 14, color: THEME.colors.textMuted, fontWeight: 600 }}>Power Off</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#DC2626" }}>Resets Empty</div>
-              </div>
-              <div style={{ backgroundColor: "#FFFFFF", padding: "10px 14px", borderRadius: 12, border: "1px solid #DBEAFE" }}>
-                <div style={{ fontSize: 14, color: THEME.colors.textMuted, fontWeight: 600 }}>Capacity</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: THEME.colors.textPrimary }}>8 GB - 32 GB</div>
-              </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 12 }}>
+              {conceptA.properties.map((p, idx) => (
+                <div
+                  key={`prop-a-${idx}`}
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: `1px solid ${conceptA.borderColor}`,
+                  }}
+                >
+                  <div style={{ fontSize: 13, color: THEME.colors.textMuted, fontWeight: 600 }}>{p.label}</div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: THEME.colors.textPrimary, marginTop: 2 }}>
+                    {p.value}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -186,8 +388,8 @@ export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
                 border: `2px solid ${THEME.colors.border}`,
                 color: THEME.colors.textMuted,
                 borderRadius: 20,
-                padding: "4px 18px",
-                fontSize: 16,
+                padding: "2px 16px",
+                fontSize: 14,
                 fontWeight: 800,
                 letterSpacing: "0.1em",
               }}
@@ -196,27 +398,26 @@ export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
             </div>
           </div>
 
-          {/* Bottom Card: Concept B (Storage / SSD / Long-term) */}
+          {/* Concept B Card */}
           <div
             style={{
               opacity: interpolate(card2Spring, [0, 1], [0, 1]),
-              transform: `translateY(${interpolate(card2Spring, [0, 1], [24, 0])}px)`,
-              backgroundColor: "#FAF5FF",
-              border: `2px solid ${hasHighlightEvent ? "#9333EA" : "#E9D5FF"}`,
-              borderRadius: 24,
-              padding: "24px 28px",
-              boxShadow: "0 6px 16px rgba(147, 51, 234, 0.06)",
-              transition: "border 0.2s ease",
+              transform: `translateY(${interpolate(card2Spring, [0, 1], [20, 0])}px)`,
+              backgroundColor: conceptB.bgColor,
+              border: `2px solid ${conceptB.borderColor}`,
+              borderRadius: 22,
+              padding: "20px 26px",
+              boxShadow: "0 4px 14px rgba(126, 34, 206, 0.05)",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
+                    width: 42,
+                    height: 42,
                     borderRadius: 12,
-                    backgroundColor: "#7E22CE",
+                    backgroundColor: conceptB.color,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -225,71 +426,53 @@ export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
                     fontWeight: 800,
                   }}
                 >
-                  💾
+                  {conceptB.icon}
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#581C87" }}>
-                    {titleB}
+                  <h3 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: conceptB.color }}>
+                    {conceptB.title}
                   </h3>
-                  <span style={{ fontSize: 18, color: "#7E22CE", fontWeight: 600 }}>
-                    The Filing Cabinet Analogy
+                  <span style={{ fontSize: 16, color: THEME.colors.textSecondary, fontWeight: 600 }}>
+                    {conceptB.analogyOrRole}
                   </span>
                 </div>
               </div>
               <span
                 style={{
-                  backgroundColor: "#F3E8FF",
-                  color: "#6B21A8",
+                  backgroundColor: "#FFFFFF",
+                  color: conceptB.color,
+                  border: `1.5px solid ${conceptB.borderColor}`,
                   padding: "4px 12px",
                   borderRadius: 8,
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: 700,
                 }}
               >
-                Non-Volatile
+                {conceptB.badge}
               </span>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 14 }}>
-              <div style={{ backgroundColor: "#FFFFFF", padding: "10px 14px", borderRadius: 12, border: "1px solid #F3E8FF" }}>
-                <div style={{ fontSize: 14, color: THEME.colors.textMuted, fontWeight: 600 }}>Speed</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: THEME.colors.textPrimary }}>~0.5 - 7 GB/s</div>
-              </div>
-              <div style={{ backgroundColor: "#FFFFFF", padding: "10px 14px", borderRadius: 12, border: "1px solid #F3E8FF" }}>
-                <div style={{ fontSize: 14, color: THEME.colors.textMuted, fontWeight: 600 }}>Power Off</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: THEME.colors.plantGreen }}>Saves Permanently</div>
-              </div>
-              <div style={{ backgroundColor: "#FFFFFF", padding: "10px 14px", borderRadius: 12, border: "1px solid #F3E8FF" }}>
-                <div style={{ fontSize: 14, color: THEME.colors.textMuted, fontWeight: 600 }}>Capacity</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: THEME.colors.textPrimary }}>512 GB - 2 TB</div>
-              </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 12 }}>
+              {conceptB.properties.map((p, idx) => (
+                <div
+                  key={`prop-b-${idx}`}
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: `1px solid ${conceptB.borderColor}`,
+                  }}
+                >
+                  <div style={{ fontSize: 13, color: THEME.colors.textMuted, fontWeight: 600 }}>{p.label}</div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: THEME.colors.textPrimary, marginTop: 2 }}>
+                    {p.value}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-
-        {/* Key Takeaway bar */}
-        <div
-          style={{
-            margin: "0 40px 28px 40px",
-            backgroundColor: "#F8FAFC",
-            border: `1.5px solid ${THEME.colors.border}`,
-            borderRadius: 16,
-            padding: "14px 20px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            opacity: interpolate(contrastSpring, [0, 1], [0, 1]),
-          }}
-        >
-          <span style={{ fontSize: 18, fontWeight: 700, color: THEME.colors.textSecondary }}>
-            💡 Rule of Thumb: RAM is your working desk; Storage is your bookshelf.
-          </span>
-          <span style={{ fontSize: 16, fontWeight: 700, color: THEME.colors.waterBlue }}>
-            Active vs Archive
-          </span>
         </div>
       </VisualStageCard>
     </SceneContainer>
   );
 };
-

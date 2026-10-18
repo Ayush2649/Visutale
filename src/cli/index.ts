@@ -1,13 +1,14 @@
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkLiveConfig, readConfig } from "../config/env.js";
-import { validatePlan, type VoicePreset, VOICE_PRESETS } from "../contracts/plan.js";
+import { validatePlan, type VoicePreset, type StoryboardPlan, VOICE_PRESETS } from "../contracts/plan.js";
 import { LocalArtifactStore } from "../storage/localArtifactStore.js";
 import {
   approveRun,
   createFixtureRun,
   createLivePlanRun,
+  createRevisionRun,
   synthesizeSpeechForRun,
   readRunManifest,
   resolveRunPath,
@@ -43,6 +44,9 @@ async function main(args: string[]): Promise<void> {
       return;
     case "approve":
       await runApprove(options);
+      return;
+    case "revise":
+      await runRevise(options);
       return;
     case "render":
     case "generate":
@@ -197,6 +201,64 @@ async function runApprove(options: Map<string, string | true>): Promise<void> {
   process.stdout.write("Storyboard approval recorded. You can now synthesize speech (live) or render the video.\n");
 }
 
+async function runRevise(options: Map<string, string | true>): Promise<void> {
+  const runPath = requireOption(options, "run");
+  const parentRunDir = resolveRunPath(store, runPath);
+  const parentPlan = await store.readJson<StoryboardPlan>(parentRunDir, "plan.json");
+
+  let modifiedPlan: StoryboardPlan;
+  if (typeof options.get("plan-file") === "string") {
+    const filePath = path.resolve(projectRoot, options.get("plan-file") as string);
+    modifiedPlan = JSON.parse(await readFile(filePath, "utf8")) as StoryboardPlan;
+  } else if (typeof options.get("change-narrator") === "string") {
+    const newVoice = options.get("change-narrator") as VoicePreset;
+    if (!VOICE_PRESETS.includes(newVoice)) {
+      throw new Error(`Unsupported voice preset '${newVoice}'. Must be one of: ${VOICE_PRESETS.join(", ")}`);
+    }
+    modifiedPlan = {
+      ...parentPlan,
+      voicePreset: newVoice,
+    };
+  } else if (options.has("increase-labels")) {
+    modifiedPlan = {
+      ...parentPlan,
+      scenes: parentPlan.scenes.map((scene) => ({
+        ...scene,
+        onScreenText: scene.onScreenText.map((t) => t.toUpperCase()),
+      })),
+    };
+  } else {
+    throw new Error("Revision requires --plan-file <path>, --change-narrator <preset>, or --increase-labels");
+  }
+
+  process.stdout.write(`Creating revision run from parent '${runPath}'...\n`);
+  const result = await createRevisionRun({
+    parentRunPath: runPath,
+    modifiedPlan,
+    store,
+  });
+
+  process.stdout.write("\n==================================================\n");
+  process.stdout.write("REVISION RUN CREATED\n");
+  process.stdout.write("==================================================\n");
+  process.stdout.write(`Run ID: ${result.manifest.runId}\n`);
+  process.stdout.write(`Run Path: runs/${result.runPath}\n`);
+  process.stdout.write(`Revision Type: ${result.revisionType}\n`);
+  process.stdout.write(`Plan Hash: ${result.planHash}\n`);
+  process.stdout.write(`Manifest State: ${result.manifest.state} (stage: ${result.manifest.stage})\n`);
+
+  if (result.revisionType === "visual-only") {
+    process.stdout.write(`Reused audio scenes without speech regeneration: ${result.reusedAudioScenes.length} scenes\n`);
+    process.stdout.write(`Next step: render revised video with: npm run pipeline -- render --run ${result.runPath}\n`);
+  } else if (result.revisionType === "narrator-change") {
+    process.stdout.write("Narration is preserved; new narrator speech synthesis required.\n");
+    process.stdout.write(`Next step: synthesize speech with: npm run pipeline -- speech --run ${result.runPath}\n`);
+  } else {
+    process.stdout.write("Narration text was modified; explicit approval of new plan hash is required.\n");
+    process.stdout.write(`Next step: approve plan hash with: npm run pipeline -- approve --run ${result.runPath} --plan-hash ${result.planHash}\n`);
+  }
+}
+
 async function runRender(options: Map<string, string | true>): Promise<void> {
   const runPath = requireOption(options, "run");
   process.stdout.write(`Starting video render for run '${runPath}'...\n`);
@@ -292,7 +354,7 @@ function formatBytes(bytes: number): string {
 }
 
 function printHelp(): void {
-  process.stdout.write(`NamasteVideo.ai pipeline CLI\n\nCommands:\n  npm run pipeline -- preflight [--require-live]\n  npm run pipeline -- plan --topic "<topic>" [--notes "<notes>"] [--voice <preset>]\n  npm run pipeline -- approve --run local/<project>/<version> --plan-hash <sha256> [--approved-by <id>]\n  npm run pipeline -- speech --run local/<project>/<version>\n  npm run pipeline -- render --run local/<project>/<version>\n  npm run pipeline -- validate --run local/<project>/<version>\n  npm run pipeline -- status --run local/<project>/<version>\n  npm run pipeline -- validate-plan --file fixtures/plans/water-cycle.json\n  npm run pipeline -- fixture --name water-cycle\n  npm run pipeline -- help\n`);
+  process.stdout.write(`NamasteVideo.ai pipeline CLI\n\nCommands:\n  npm run pipeline -- preflight [--require-live]\n  npm run pipeline -- plan --topic "<topic>" [--notes "<notes>"] [--voice <preset>]\n  npm run pipeline -- approve --run local/<project>/<version> --plan-hash <sha256> [--approved-by <id>]\n  npm run pipeline -- speech --run local/<project>/<version>\n  npm run pipeline -- render --run local/<project>/<version>\n  npm run pipeline -- revise --run local/<project>/<version> [--plan-file <path>] [--change-narrator <preset>] [--increase-labels]\n  npm run pipeline -- validate --run local/<project>/<version>\n  npm run pipeline -- status --run local/<project>/<version>\n  npm run pipeline -- validate-plan --file fixtures/plans/water-cycle.json\n  npm run pipeline -- fixture --name water-cycle\n  npm run pipeline -- help\n`);
 }
 
 main(process.argv.slice(2)).catch((error: unknown) => {

@@ -23,6 +23,7 @@ import {
   mapAlignmentToBlockTimings,
   resolvePhraseTimingFromBlock,
 } from "./alignmentMapper.js";
+import { resolveLegacyVariant, validateVisualSelection } from "../video/registry/index.js";
 
 export interface CompileOptions {
   fps?: number;
@@ -93,7 +94,21 @@ export function compilePlanTimeline(
       fps
     );
 
-    compiledScenes.push({
+    const sceneAudio = speech
+      ? {
+          isFixture: false,
+          audioPath: speech.audioFilename,
+          audioBase64: speech.audioBase64,
+          alignmentPath: speech.alignmentFilename,
+          durationMs: speech.durationMs,
+        }
+      : {
+          isFixture: true,
+          durationMs: scene.estimatedDurationMs,
+          note: "Silent fixture placeholder audio. Live ElevenLabs narration integration is deferred to P2.",
+        };
+
+    const candidateCompiledScene: CompiledScene = {
       sceneId: scene.id,
       type: scene.type,
       startFrame: sceneStartFrame,
@@ -104,20 +119,16 @@ export function compilePlanTimeline(
       objects: [...scene.objects],
       events: resolvedEvents,
       captions,
-      audio: speech
-        ? {
-            isFixture: false,
-            audioPath: speech.audioFilename,
-            audioBase64: speech.audioBase64,
-            alignmentPath: speech.alignmentFilename,
-            durationMs: speech.durationMs,
-          }
-        : {
-            isFixture: true,
-            durationMs: scene.estimatedDurationMs,
-            note: "Silent fixture placeholder audio. Live ElevenLabs narration integration is deferred to P2.",
-          },
-    });
+      audio: sceneAudio,
+      visualVariant: scene.visualVariant,
+      visualData: scene.visualData,
+    };
+
+    const resolvedVariant = scene.visualVariant ?? resolveLegacyVariant(candidateCompiledScene, plan.topic);
+    validateVisualSelection(plan.topic, resolvedVariant);
+    candidateCompiledScene.visualVariant = resolvedVariant;
+
+    compiledScenes.push(candidateCompiledScene);
 
     currentFrame = sceneEndFrame;
   }
@@ -131,6 +142,7 @@ export function compilePlanTimeline(
     planHash,
     projectId: plan.projectId,
     versionId: plan.versionId,
+    topic: plan.topic,
     voicePreset: plan.voicePreset,
     composition: {
       width,

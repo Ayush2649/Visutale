@@ -88,6 +88,10 @@ export interface StoryboardScene {
   onScreenText: string[];
   /** Stable IDs of user-provided notes relevant to this scene. */
   sourceRefs: string[];
+  /** Optional strongly typed visual variant ID from the visual registry. */
+  visualVariant?: string;
+  /** Optional strongly typed visual parameters specific to the variant. */
+  visualData?: Record<string, unknown>;
 }
 
 export interface StoryboardPlan {

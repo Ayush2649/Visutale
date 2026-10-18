@@ -340,3 +340,219 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 40) || "project";
 }
+
+export interface RevisionRunResult {
+  runDir: string;
+  runPath: string;
+  manifest: RunManifest;
+  planHash: string;
+  revisionType: "visual-only" | "narration-affecting" | "narrator-change";
+  reusedAudioScenes: string[];
+}
+
+export async function createRevisionRun(options: {
+  parentRunPath: string;
+  modifiedPlan: StoryboardPlan;
+  store: LocalArtifactStore;
+  now?: Date;
+}): Promise<RevisionRunResult> {
+  const { parentRunPath, modifiedPlan, store } = options;
+  const parentRunDir = resolveRunPath(store, parentRunPath);
+  const parentManifest = await readManifest(store, parentRunDir);
+  const parentPlan = await store.readJson<StoryboardPlan>(parentRunDir, "plan.json");
+
+  // Validate modified plan
+  const planValidation = validatePlan(modifiedPlan);
+  if (!planValidation.success) {
+    throw new Error(`Modified plan failed validation:\n${formatIssues(planValidation.issues)}`);
+  }
+  const plan = planValidation.data;
+
+  // Determine revision type
+  const voiceChanged = plan.voicePreset !== parentPlan.voicePreset;
+
+  let narrationChanged = false;
+  if (plan.scenes.length !== parentPlan.scenes.length) {
+    narrationChanged = true;
+  } else {
+    for (let i = 0; i < plan.scenes.length; i++) {
+      const parentScene = parentPlan.scenes[i];
+      const newScene = plan.scenes[i];
+      if (parentScene.id !== newScene.id) {
+        narrationChanged = true;
+        break;
+      }
+      const parentNarration = parentScene.narration.map((n) => n.text.trim()).join(" ");
+      const newNarration = newScene.narration.map((n) => n.text.trim()).join(" ");
+      if (parentNarration !== newNarration) {
+        narrationChanged = true;
+        break;
+      }
+    }
+  }
+
+  let revisionType: "visual-only" | "narration-affecting" | "narrator-change";
+  if (voiceChanged) {
+    revisionType = "narrator-change";
+  } else if (narrationChanged) {
+    revisionType = "narration-affecting";
+  } else {
+    revisionType = "visual-only";
+  }
+
+  const now = options.now ?? new Date();
+  const timestamp = now.toISOString().replace(/[-:.]/g, "").replace("T", "-").replace("Z", "Z");
+  const runId = `${parentManifest.projectId}-rev-${timestamp}`;
+  const runDir = store.resolveRunDir(parentManifest.ownerId, parentManifest.projectId, runId);
+  await store.ensureRunDir(runDir);
+
+  const revisedPlan: StoryboardPlan = {
+    ...plan,
+    projectId: parentManifest.projectId,
+    ownerId: parentManifest.ownerId,
+    versionId: runId,
+    parentVersionId: parentManifest.versionId,
+  };
+
+  const planHash = hashCanonicalJson(revisedPlan);
+  await store.writeJson(runDir, "plan.json", revisedPlan);
+  await store.writeText(runDir, "plan-review.html", renderStoryboardReviewHtml(revisedPlan, planHash));
+
+  const reusedAudioScenes: string[] = [];
+
+  if (revisionType === "visual-only") {
+    // Reuse parent's speech audio and alignment without re-synthesizing!
+    if (parentManifest.artifacts.audio && parentManifest.artifacts.alignment) {
+      await mkdir(path.join(runDir, "audio"), { recursive: true });
+      await mkdir(path.join(runDir, "alignment"), { recursive: true });
+
+      for (const scene of revisedPlan.scenes) {
+        const audioFile = `${scene.id}.mp3`;
+        const alignFile = `${scene.id}.json`;
+        const parentAudioRel = path.join("audio", audioFile);
+        const parentAlignRel = path.join("alignment", alignFile);
+
+        if (await store.exists(parentRunDir, parentAudioRel)) {
+          const audioBuffer = await readFile(path.join(parentRunDir, parentAudioRel));
+          await writeFile(path.join(runDir, "audio", audioFile), audioBuffer);
+          const alignData = await store.readJson<unknown>(parentRunDir, parentAlignRel);
+          await store.writeJson(runDir, parentAlignRel, alignData);
+          reusedAudioScenes.push(scene.id);
+        }
+      }
+    }
+
+    const approval = {
+      planHash,
+      approvedAt: now.toISOString(),
+      approvedBy: "visual-revision-inheritance",
+      parentPlanHash: parentManifest.planHash,
+    };
+    await store.writeJson(runDir, "approval.json", approval);
+
+    const manifest: RunManifest = {
+      manifestVersion: 1,
+      runId,
+      mode: parentManifest.mode,
+      state: "approved",
+      stage: "compile",
+      ownerId: revisedPlan.ownerId,
+      projectId: revisedPlan.projectId,
+      versionId: runId,
+      parentRunId: parentManifest.runId,
+      revisionType,
+      planHash,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      artifacts: {
+        plan: "plan.json",
+        reviewHtml: "plan-review.html",
+        approval: "approval.json",
+        audio: reusedAudioScenes.length > 0 ? "audio" : undefined,
+        alignment: reusedAudioScenes.length > 0 ? "alignment" : undefined,
+      },
+      provenance: parentManifest.provenance,
+    };
+    await store.writeJson(runDir, "manifest.json", manifest);
+
+    return {
+      runDir,
+      runPath: path.relative(store.rootDir, runDir).split(path.sep).join("/"),
+      manifest,
+      planHash,
+      revisionType,
+      reusedAudioScenes,
+    };
+  } else if (revisionType === "narrator-change") {
+    // Voice changed: approved narration is kept, audio is invalidated and must be synthesized
+    const approval = {
+      planHash,
+      approvedAt: now.toISOString(),
+      approvedBy: "narrator-change",
+      parentPlanHash: parentManifest.planHash,
+    };
+    await store.writeJson(runDir, "approval.json", approval);
+
+    const manifest: RunManifest = {
+      manifestVersion: 1,
+      runId,
+      mode: parentManifest.mode,
+      state: "approved",
+      stage: "speech",
+      ownerId: revisedPlan.ownerId,
+      projectId: revisedPlan.projectId,
+      versionId: runId,
+      parentRunId: parentManifest.runId,
+      revisionType,
+      planHash,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      artifacts: {
+        plan: "plan.json",
+        reviewHtml: "plan-review.html",
+        approval: "approval.json",
+      },
+    };
+    await store.writeJson(runDir, "manifest.json", manifest);
+
+    return {
+      runDir,
+      runPath: path.relative(store.rootDir, runDir).split(path.sep).join("/"),
+      manifest,
+      planHash,
+      revisionType,
+      reusedAudioScenes: [],
+    };
+  } else {
+    // Narration changed: requires human re-approval of revised script
+    const manifest: RunManifest = {
+      manifestVersion: 1,
+      runId,
+      mode: parentManifest.mode,
+      state: "awaiting-approval",
+      stage: "approve",
+      ownerId: revisedPlan.ownerId,
+      projectId: revisedPlan.projectId,
+      versionId: runId,
+      parentRunId: parentManifest.runId,
+      revisionType,
+      planHash,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      artifacts: {
+        plan: "plan.json",
+        reviewHtml: "plan-review.html",
+      },
+    };
+    await store.writeJson(runDir, "manifest.json", manifest);
+
+    return {
+      runDir,
+      runPath: path.relative(store.rootDir, runDir).split(path.sep).join("/"),
+      manifest,
+      planHash,
+      revisionType,
+      reusedAudioScenes: [],
+    };
+  }
+}

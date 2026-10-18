@@ -49,6 +49,8 @@ export interface RunManifest {
     audio?: string;
     alignment?: string;
   };
+  parentRunId?: string;
+  revisionType?: "visual-only" | "narration-affecting" | "narrator-change";
   provenance?: {
     voicePreset: string;
     resolvedVoiceId: string;

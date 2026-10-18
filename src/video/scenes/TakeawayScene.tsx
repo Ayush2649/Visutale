@@ -10,15 +10,21 @@ export const TakeawayScene: React.FC<SceneProps> = ({
   sceneIndex,
   totalScenes,
   globalProgress,
+  topic = "Key Takeaway",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const summaryEvent = scene.events.find((e) => e.targetId === "cycle-summary");
-  const revealFrame = summaryEvent ? Math.max(0, summaryEvent.startFrame - scene.startFrame) : 40;
+  const isPhotosynthesis = topic.toLowerCase().includes("photosynthesis");
+  const isWaterCycle = !isPhotosynthesis && (topic.toLowerCase().includes("water cycle") || (topic.toLowerCase().includes("water") && !topic.toLowerCase().includes("plant")));
+  const isHardware = topic.toLowerCase().includes("ram") || topic.toLowerCase().includes("storage");
+  const isAlgorithm = topic.toLowerCase().includes("binary") || topic.toLowerCase().includes("search");
+
+  const title = scene.onScreenText[0] ?? "Key Takeaways";
+  const subtitle = scene.onScreenText[1] ?? scene.purpose;
 
   const spr = spring({
-    frame: Math.max(0, frame - revealFrame),
+    frame,
     fps,
     config: { damping: 14, mass: 0.9 },
   });
@@ -26,55 +32,12 @@ export const TakeawayScene: React.FC<SceneProps> = ({
   const summaryOpacity = interpolate(spr, [0, 1], [0, 1]);
   const summaryScale = interpolate(spr, [0, 1], [0.92, 1]);
 
-  // Meaningful sequential stage highlighting across the 240-frame scene
-  // 1. Evaporation (0-60) -> 2. Condensation (60-120) -> 3. Precipitation (120-180) -> 4. Collection (180-240)
-  const activeStage = Math.min(3, Math.floor(frame / 60));
-
-  const stages = [
-    {
-      id: "evap",
-      num: "1",
-      name: "Evaporation",
-      icon: "☀️",
-      desc: "Water warms & rises",
-      color: THEME.colors.sunAmber,
-      bg: THEME.colors.sunAmberLight,
-    },
-    {
-      id: "cond",
-      num: "2",
-      name: "Condensation",
-      icon: "☁️",
-      desc: "Vapour forms clouds",
-      color: THEME.colors.condensationCyan,
-      bg: THEME.colors.condensationCyanLight,
-    },
-    {
-      id: "precip",
-      num: "3",
-      name: "Precipitation",
-      icon: "🌧️",
-      desc: "Rain & snow fall",
-      color: THEME.colors.waterBlue,
-      bg: THEME.colors.waterBlueLight,
-    },
-    {
-      id: "collect",
-      num: "4",
-      name: "Collection",
-      icon: "🌊",
-      desc: "Lakes & oceans pool",
-      color: THEME.colors.plantGreenDark,
-      bg: THEME.colors.plantGreenLight,
-    },
-  ];
-
   return (
     <SceneContainer
-      topic="The Water Cycle"
+      topic={topic}
       sceneIndex={sceneIndex}
       totalScenes={totalScenes}
-      stepTitle="Key Takeaway: The Endless Loop"
+      stepTitle={title}
       progress={globalProgress}
     >
       <VisualStageCard width={936} height={1040}>
@@ -87,250 +50,363 @@ export const TakeawayScene: React.FC<SceneProps> = ({
             flexDirection: "column",
             justifyContent: "space-between",
             alignItems: "center",
-            padding: "32px 36px",
+            padding: "36px 40px",
             boxSizing: "border-box",
           }}
         >
-          {/* Top Header */}
+          {/* Header */}
           <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: THEME.colors.textPrimary }}>
-                A Perpetual Planetary Cycle
+              <div style={{ fontSize: 34, fontWeight: 800, color: THEME.colors.textPrimary }}>
+                {title}
               </div>
-              <div style={{ fontSize: 22, fontWeight: 600, color: THEME.colors.textSecondary, marginTop: 4 }}>
-                Water moves between Earth's surface and the atmosphere continuously
+              <div style={{ fontSize: 22, fontWeight: 600, color: THEME.colors.textSecondary, marginTop: 6, maxWidth: 680 }}>
+                {subtitle}
               </div>
             </div>
             <AnimatedBadge
-              label="Endless Cycle"
+              label="Summary"
               frame={frame}
               revealFrame={5}
               color={THEME.colors.waterBlueDark}
               bgColor={THEME.colors.waterBlueLight}
-              fontSize={20}
             />
           </div>
 
-          {/* Central Circular Cycle Graph (Interconnecting All 4 Stages) */}
-          <div
-            style={{
-              position: "relative",
-              width: 580,
-              height: 440,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            {/* Circular interconnecting arrows */}
-            <svg
-              width="500"
-              height="400"
-              viewBox="0 0 500 400"
-              style={{ position: "absolute" }}
-            >
-              {/* Outer circular guide */}
-              <circle
-                cx="250"
-                cy="200"
-                r="150"
-                fill="none"
-                stroke="#E2E8F0"
-                strokeWidth="10"
-                strokeDasharray="16 12"
-              />
-              {/* Animated active path connecting stages */}
-              <path
-                d="M 250 50 A 150 150 0 0 1 400 200"
-                fill="none"
-                stroke={activeStage >= 1 ? THEME.colors.condensationCyan : "#CBD5E1"}
-                strokeWidth="12"
-                strokeLinecap="round"
-              />
-              <path
-                d="M 400 200 A 150 150 0 0 1 250 350"
-                fill="none"
-                stroke={activeStage >= 2 ? THEME.colors.waterBlue : "#CBD5E1"}
-                strokeWidth="12"
-                strokeLinecap="round"
-              />
-              <path
-                d="M 250 350 A 150 150 0 0 1 100 200"
-                fill="none"
-                stroke={activeStage >= 3 ? THEME.colors.plantGreenDark : "#CBD5E1"}
-                strokeWidth="12"
-                strokeLinecap="round"
-              />
-              <path
-                d="M 100 200 A 150 150 0 0 1 250 50"
-                fill="none"
-                stroke={THEME.colors.sunAmber}
-                strokeWidth="12"
-                strokeLinecap="round"
-              />
-            </svg>
-
-            {/* 4 Stage Nodes on the Circle */}
-            {/* Top: 1. Evaporation */}
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                backgroundColor: activeStage === 0 ? stages[0].bg : "#FFFFFF",
-                border: `3px solid ${activeStage === 0 ? stages[0].color : THEME.colors.border}`,
-                borderRadius: 20,
-                padding: "8px 20px",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                boxShadow: activeStage === 0 ? "0 8px 20px rgba(217,119,6,0.25)" : "none",
-                transform: activeStage === 0 ? "scale(1.08)" : "scale(1)",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <span style={{ fontSize: 24 }}>{stages[0].icon}</span>
-              <span style={{ fontSize: 20, fontWeight: 800, color: stages[0].color }}>
-                {stages[0].name}
-              </span>
-            </div>
-
-            {/* Right: 2. Condensation */}
-            <div
-              style={{
-                position: "absolute",
-                right: 0,
-                backgroundColor: activeStage === 1 ? stages[1].bg : "#FFFFFF",
-                border: `3px solid ${activeStage === 1 ? stages[1].color : THEME.colors.border}`,
-                borderRadius: 20,
-                padding: "8px 20px",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                boxShadow: activeStage === 1 ? "0 8px 20px rgba(2,132,199,0.25)" : "none",
-                transform: activeStage === 1 ? "scale(1.08)" : "scale(1)",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <span style={{ fontSize: 24 }}>{stages[1].icon}</span>
-              <span style={{ fontSize: 20, fontWeight: 800, color: stages[1].color }}>
-                {stages[1].name}
-              </span>
-            </div>
-
-            {/* Bottom: 3. Precipitation */}
-            <div
-              style={{
-                position: "absolute",
-                bottom: 0,
-                backgroundColor: activeStage === 2 ? stages[2].bg : "#FFFFFF",
-                border: `3px solid ${activeStage === 2 ? stages[2].color : THEME.colors.border}`,
-                borderRadius: 20,
-                padding: "8px 20px",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                boxShadow: activeStage === 2 ? "0 8px 20px rgba(37,99,235,0.25)" : "none",
-                transform: activeStage === 2 ? "scale(1.08)" : "scale(1)",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <span style={{ fontSize: 24 }}>{stages[2].icon}</span>
-              <span style={{ fontSize: 20, fontWeight: 800, color: stages[2].color }}>
-                {stages[2].name}
-              </span>
-            </div>
-
-            {/* Left: 4. Collection */}
-            <div
-              style={{
-                position: "absolute",
-                left: 0,
-                backgroundColor: activeStage === 3 ? stages[3].bg : "#FFFFFF",
-                border: `3px solid ${activeStage === 3 ? stages[3].color : THEME.colors.border}`,
-                borderRadius: 20,
-                padding: "8px 20px",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                boxShadow: activeStage === 3 ? "0 8px 20px rgba(4,120,87,0.25)" : "none",
-                transform: activeStage === 3 ? "scale(1.08)" : "scale(1)",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <span style={{ fontSize: 24 }}>{stages[3].icon}</span>
-              <span style={{ fontSize: 20, fontWeight: 800, color: stages[3].color }}>
-                {stages[3].name}
-              </span>
-            </div>
-
-            {/* Center Emblem: Recycled Water Journey */}
-            <div
-              style={{
-                width: 140,
-                height: 140,
-                borderRadius: "50%",
-                backgroundColor: "#EFF6FF",
-                border: "2px solid #BFDBFE",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                textAlign: "center",
-                padding: 10,
-                boxSizing: "border-box",
-              }}
-            >
-              <span style={{ fontSize: 28 }}>🔄</span>
-              <span style={{ fontSize: 16, fontWeight: 800, color: THEME.colors.waterBlueDark, marginTop: 4 }}>
-                Continuous Loop
-              </span>
-            </div>
-          </div>
-
-          {/* Strong Final Takeaway Card (reveals at cue) */}
+          {/* Central Body: Topic Specific */}
           <div
             style={{
               opacity: summaryOpacity,
               transform: `scale(${summaryScale})`,
               width: "100%",
-              backgroundColor: "#0F172A", // High contrast dark slate card
-              borderRadius: 24,
-              padding: "32px 36px",
-              boxSizing: "border-box",
+              flex: 1,
               display: "flex",
               flexDirection: "column",
-              gap: 12,
-              boxShadow: "0 16px 36px rgba(15,23,42,0.3)",
-              transition: "transform 0.2s ease",
+              justifyContent: "center",
+              gap: 20,
+              padding: "16px 0",
+            }}
+          >
+            {isWaterCycle ? (
+              /* Water Cycle 4-Phase Closed Loop */
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {[
+                  { num: "1", name: "Evaporation", desc: "Liquid water absorbs solar energy and rises as vapor", icon: "☀️", color: THEME.colors.sunAmber, bg: THEME.colors.sunAmberLight },
+                  { num: "2", name: "Condensation", desc: "Cooling air condenses rising vapor into clouds", icon: "☁️", color: THEME.colors.condensationCyan, bg: THEME.colors.condensationCyanLight },
+                  { num: "3", name: "Precipitation", desc: "Gravity pulls condensed rain and snow back to Earth", icon: "🌧️", color: THEME.colors.waterBlue, bg: THEME.colors.waterBlueLight },
+                  { num: "4", name: "Collection", desc: "Runoff replenishes lakes, oceans, and aquifers", icon: "🌊", color: THEME.colors.plantGreenDark, bg: THEME.colors.plantGreenLight },
+                ].map((stg, i) => {
+                  const active = Math.min(3, Math.floor(frame / 60)) === i;
+                  return (
+                    <div
+                      key={stg.name}
+                      style={{
+                        backgroundColor: active ? stg.bg : "#FFFFFF",
+                        border: `2px solid ${active ? stg.color : THEME.colors.border}`,
+                        borderRadius: 16,
+                        padding: "14px 20px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 16,
+                        boxShadow: active ? "0 4px 14px rgba(37,99,235,0.08)" : "none",
+                      }}
+                    >
+                      <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: stg.color, color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800 }}>
+                        {stg.icon}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: THEME.colors.textPrimary }}>
+                          Stage {stg.num}: {stg.name}
+                        </div>
+                        <div style={{ fontSize: 15, color: THEME.colors.textMuted }}>{stg.desc}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : isHardware ? (
+              /* RAM vs Storage Mental Model Takeaway */
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                <div
+                  style={{
+                    backgroundColor: "#EFF6FF",
+                    border: `2px solid ${THEME.colors.waterBlue}`,
+                    borderRadius: 20,
+                    padding: "24px 28px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 20,
+                  }}
+                >
+                  <div style={{ fontSize: 44 }}>🖥️</div>
+                  <div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: THEME.colors.waterBlueDeep }}>
+                      RAM = Working Desk Space
+                    </div>
+                    <div style={{ fontSize: 17, color: THEME.colors.waterBlueDark, marginTop: 4 }}>
+                      Lightning-fast working memory for apps you are actively running right now. Resets on restart.
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "#FAF5FF",
+                    border: "2px solid #C084FC",
+                    borderRadius: 20,
+                    padding: "24px 28px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 20,
+                  }}
+                >
+                  <div style={{ fontSize: 44 }}>🗄️</div>
+                  <div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: "#581C87" }}>
+                      Storage = Bedroom Closet & Filing Cabinet
+                    </div>
+                    <div style={{ fontSize: 17, color: "#7E22CE", marginTop: 4 }}>
+                      Massive, permanent long-term library for all your photos, games, documents, and the operating system.
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "#F8FAFC",
+                    border: `1.5px solid ${THEME.colors.border}`,
+                    borderRadius: 14,
+                    padding: "14px 20px",
+                    textAlign: "center",
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: THEME.colors.textPrimary,
+                  }}
+                >
+                  Rule of thumb: RAM gives you multitasking speed; Storage gives you file capacity!
+                </div>
+              </div>
+            ) : isAlgorithm ? (
+              /* Binary Search 3 Core Takeaways */
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                {[
+                  {
+                    step: "1",
+                    title: "Prerequisite: Input Must Be Sorted",
+                    desc: "Binary search cannot discard intervals safely unless data is in strict ascending order.",
+                    badge: "Requirement",
+                    color: "#D97706",
+                    bg: "#FEF3C7",
+                    border: "#FDE68A",
+                  },
+                  {
+                    step: "2",
+                    title: "Divide & Conquer: Halve Range Every Step",
+                    desc: "Checking the midpoint eliminates 50% of remaining candidates in a single comparison.",
+                    badge: "Mechanism",
+                    color: THEME.colors.waterBlue,
+                    bg: "#EFF6FF",
+                    border: "#BFDBFE",
+                  },
+                  {
+                    step: "3",
+                    title: "Logarithmic Scaling: O(log n) Efficiency",
+                    desc: "Searches 1,000,000 items in ~20 steps; 1,000,000,000 items in only ~30 comparisons.",
+                    badge: "Complexity",
+                    color: THEME.colors.plantGreenDark,
+                    bg: "#ECFDF5",
+                    border: "#A7F3D0",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.title}
+                    style={{
+                      backgroundColor: item.bg,
+                      border: `2px solid ${item.border}`,
+                      borderRadius: 18,
+                      padding: "20px 24px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 12,
+                          backgroundColor: item.color,
+                          color: "#FFFFFF",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 20,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {item.step}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: THEME.colors.textPrimary }}>
+                          {item.title}
+                        </div>
+                        <div style={{ fontSize: 15, color: THEME.colors.textSecondary, marginTop: 2 }}>
+                          {item.desc}
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        backgroundColor: "#FFFFFF",
+                        color: item.color,
+                        padding: "4px 12px",
+                        borderRadius: 8,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        border: `1px solid ${item.border}`,
+                      }}
+                    >
+                      {item.badge}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : isPhotosynthesis ? (
+              /* Photosynthesis Core Takeaways */
+              <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "100%" }}>
+                {[
+                  {
+                    step: "1",
+                    title: "Sunlight & Chlorophyll",
+                    desc: "Chlorophyll inside chloroplasts captures light energy from the sun.",
+                    badge: "Energy",
+                    color: "#D97706",
+                    bg: "#FEF3C7",
+                    border: "#FDE68A",
+                  },
+                  {
+                    step: "2",
+                    title: "Raw Inputs: Water & CO2",
+                    desc: "Roots draw water from soil while leaf pores absorb carbon dioxide from air.",
+                    badge: "Inputs",
+                    color: THEME.colors.waterBlue,
+                    bg: "#EFF6FF",
+                    border: "#BFDBFE",
+                  },
+                  {
+                    step: "3",
+                    title: "Vital Outputs: Glucose & Oxygen",
+                    desc: "Produces glucose sugars to fuel plant growth and releases oxygen to support life.",
+                    badge: "Outputs",
+                    color: THEME.colors.plantGreenDark,
+                    bg: "#ECFDF5",
+                    border: "#A7F3D0",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.title}
+                    style={{
+                      backgroundColor: item.bg,
+                      border: `2px solid ${item.border}`,
+                      borderRadius: 18,
+                      padding: "20px 24px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 12,
+                          backgroundColor: item.color,
+                          color: "#FFFFFF",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 20,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {item.step}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: THEME.colors.textPrimary }}>
+                          {item.title}
+                        </div>
+                        <div style={{ fontSize: 15, color: THEME.colors.textSecondary, marginTop: 2 }}>
+                          {item.desc}
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        backgroundColor: "#FFFFFF",
+                        color: item.color,
+                        padding: "4px 12px",
+                        borderRadius: 8,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        border: `1px solid ${item.border}`,
+                      }}
+                    >
+                      {item.badge}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Generic Object-Driven Takeaways */
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {scene.objects.map((obj, i) => (
+                  <div
+                    key={obj.id}
+                    style={{
+                      backgroundColor: "#F8FAFC",
+                      border: `2px solid ${THEME.colors.border}`,
+                      borderRadius: 16,
+                      padding: "20px 24px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 16,
+                    }}
+                  >
+                    <div style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: THEME.colors.waterBlue, color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800 }}>
+                      {i + 1}
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: THEME.colors.textPrimary }}>
+                      {obj.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Footer Card */}
+          <div
+            style={{
+              width: "100%",
+              backgroundColor: "#1E293B",
+              borderRadius: 18,
+              padding: "16px 24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div
-                style={{
-                  width: 14,
-                  height: 14,
-                  borderRadius: "50%",
-                  backgroundColor: "#38BDF8",
-                }}
-              />
-              <span
-                style={{
-                  color: "#94A3B8",
-                  fontSize: 20,
-                  fontWeight: 800,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Key Educational Takeaway
+              <span style={{ fontSize: 24 }}>✨</span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: "#F8FAFC" }}>
+                {isWaterCycle ? "Earth's continuous natural engine" : isHardware ? "RAM for speed • Storage for space" : isAlgorithm ? "Divide & conquer at logarithmic scale" : isPhotosynthesis ? "Solar-powered engine sustaining life on Earth" : "Core takeaway summary"}
               </span>
             </div>
-            <div style={{ fontSize: 34, fontWeight: 900, color: "#FFFFFF", lineHeight: 1.25 }}>
-              The Same Water Travels These Stages Again & Again
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 500, color: "#CBD5E1", lineHeight: 1.35 }}>
-              Water is never lost on Earth — it constantly recycles between our oceans, soil, atmosphere, and living plants.
-            </div>
+            <span style={{ fontSize: 16, color: "#94A3B8", fontWeight: 600 }}>
+              Complete
+            </span>
           </div>
         </div>
       </VisualStageCard>

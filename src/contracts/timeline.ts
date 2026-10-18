@@ -60,6 +60,8 @@ export interface CompiledScene {
   events: ResolvedAnimationEvent[];
   captions: CaptionCue[];
   audio: SceneAudioTrack;
+  visualVariant?: string;
+  visualData?: Record<string, unknown>;
 }
 
 export interface CompiledTimeline {
@@ -68,6 +70,7 @@ export interface CompiledTimeline {
   planHash: string;
   projectId: string;
   versionId: string;
+  topic?: string;
   voicePreset: string;
   composition: CompositionConfig;
   scenes: CompiledScene[];
