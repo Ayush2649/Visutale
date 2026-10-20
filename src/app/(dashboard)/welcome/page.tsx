@@ -20,9 +20,7 @@ export default function WelcomePage() {
   const handleGenerateDraft = (e: React.FormEvent) => {
     e.preventDefault();
     if (!promptText.trim()) return;
-    setPromptNotice(
-      `Manuscript generation for "${promptText.trim()}" is scheduled for Milestone 4 (Studio & Storyboard). Your prompt is noted for authoring.`
-    );
+    router.push(`/studio?topic=${encodeURIComponent(promptText.trim())}`);
   };
 
   return (
@@ -39,6 +37,12 @@ export default function WelcomePage() {
             </span>
           </div>
           <nav className="flex items-center gap-space-lg">
+            <Link
+              className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors py-space-xs px-space-sm"
+              href="/studio"
+            >
+              Create
+            </Link>
             <Link
               className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors py-space-xs px-space-sm"
               href="/your-videos"
@@ -361,9 +365,9 @@ export default function WelcomePage() {
                 <span className="font-label-code text-label-code uppercase tracking-widest text-primary-container font-medium">
                   Quick Initialization
                 </span>
-                <h3 className="font-headline-sm text-headline-sm text-on-surface font-normal">
+                <h2 className="font-headline-sm text-headline-sm text-on-surface font-normal">
                   Start with a single sentence or prompt
-                </h3>
+                </h2>
                 <p className="font-body-md text-body-md text-on-surface-variant">
                   Enter an academic paper title, lecture thesis, or curiosity topic. Visutale will generate the narrative script, voice pacing, and vector storyboard.
                 </p>
@@ -437,9 +441,9 @@ export default function WelcomePage() {
                   </div>
                 </div>
                 <div className="space-y-space-xs">
-                  <h4 className="font-title-md text-title-md text-on-surface font-semibold">
+                  <h3 className="font-title-md text-title-md text-on-surface font-semibold">
                     Input Topic or Abstract
-                  </h4>
+                  </h3>
                   <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
                     Paste lecture notes, raw scientific abstracts, or choose guided prompt paths. Visutale extracts key educational tension and builds a cadence-timed outline.
                   </p>
@@ -461,9 +465,9 @@ export default function WelcomePage() {
                   </div>
                 </div>
                 <div className="space-y-space-xs">
-                  <h4 className="font-title-md text-title-md text-on-surface font-semibold">
+                  <h3 className="font-title-md text-title-md text-on-surface font-semibold">
                     Refine Script &amp; Storyboard
-                  </h4>
+                  </h3>
                   <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
                     Review side-by-side manuscript sentences alongside architectural 9:16 scene plates. Adjust diagrammatic callouts, pacing tokens, and voice inflections.
                   </p>
@@ -485,9 +489,9 @@ export default function WelcomePage() {
                   </div>
                 </div>
                 <div className="space-y-space-xs">
-                  <h4 className="font-title-md text-title-md text-on-surface font-semibold">
+                  <h3 className="font-title-md text-title-md text-on-surface font-semibold">
                     Render &amp; Disseminate
-                  </h4>
+                  </h3>
                   <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
                     Produce crisp 1080p 60fps vertical MP4 files complete with synchronized kinetic typography, clean editorial margins, and pristine sound design.
                   </p>

@@ -30,9 +30,10 @@ export async function createFixtureRun(options: {
   name: string;
   fixtureRoot: string;
   store: LocalArtifactStore;
+  ownerId?: string;
   now?: Date;
 }): Promise<FixtureRunResult> {
-  const { name, fixtureRoot, store } = options;
+  const { name, fixtureRoot, store, ownerId = "local" } = options;
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(name)) throw new Error("Fixture name contains unsupported characters.");
 
   const fixturePath = path.resolve(fixtureRoot, `${name}.json`);
@@ -48,7 +49,7 @@ export async function createFixtureRun(options: {
   const plan: StoryboardPlan = {
     ...parsed.data,
     projectId: name,
-    ownerId: "local",
+    ownerId,
     versionId: runId,
     parentVersionId: null,
   };
@@ -87,9 +88,10 @@ export async function createLivePlanRun(options: {
   voicePreset?: VoicePreset;
   store: LocalArtifactStore;
   config: AppConfig;
+  ownerId?: string;
   now?: Date;
 }): Promise<LivePlanRunResult> {
-  const { topic, notes, voicePreset = "indian-english-female", store, config } = options;
+  const { topic, notes, voicePreset = "indian-english-female", store, config, ownerId = "local" } = options;
 
   if (!config.geminiApiKey) {
     throw new Error("GEMINI_API_KEY environment variable is required for live planning.");
@@ -110,7 +112,7 @@ export async function createLivePlanRun(options: {
     apiKey: config.geminiApiKey,
     model: config.geminiModel,
     projectId: projectSlug,
-    ownerId: "local",
+    ownerId,
     versionId: runId,
   });
 

@@ -3,12 +3,14 @@
 import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "@/lib/auth-client";
+import { signIn, linkSocial } from "@/lib/auth-client";
 
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/your-videos";
+  const errorParam = searchParams.get("error");
+  const isAccountLinkingRequired = errorParam === "account_not_linked";
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -18,6 +20,14 @@ function SignInForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+
+  React.useEffect(() => {
+    if (errorParam === "account_not_linked") {
+      setErrorMessage(
+        "An account with this email already exists with passphrase authentication. Please sign in with your email and passphrase to verify your identity and link your Google account."
+      );
+    }
+  }, [errorParam]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +61,16 @@ function SignInForm() {
         return;
       }
 
+      // If redirected from Google OAuth with account_not_linked, complete linking now
+      if (isAccountLinkingRequired) {
+        setInfoMessage("Passphrase verified. Completing secure Google account linking...");
+        await linkSocial({
+          provider: "google",
+          callbackURL: callbackUrl,
+        });
+        return;
+      }
+
       // Successful sign in: redirect to protected destination
       router.push(callbackUrl);
       router.refresh();
@@ -69,6 +89,7 @@ function SignInForm() {
       const result = await signIn.social({
         provider: "google",
         callbackURL: callbackUrl,
+        errorCallbackURL: "/sign-in",
       });
 
       if (result?.error) {
@@ -93,11 +114,11 @@ function SignInForm() {
             <span className="font-headline-sm text-headline-sm text-on-surface tracking-tight font-normal italic">
               Visutale
             </span>
-            <span className="font-label-code text-label-code text-outline uppercase">
+            <span className="font-label-code text-label-code text-outline uppercase hidden sm:inline">
               • Precision Narrative Instrument
             </span>
           </div>
-          <nav className="flex items-center gap-space-lg">
+          <nav className="hidden md:flex items-center gap-space-lg">
             <Link
               aria-current="page"
               className="font-body-sm transition-colors py-space-xs px-space-sm bg-secondary-container text-on-secondary-container rounded"
@@ -111,15 +132,22 @@ function SignInForm() {
             >
               Create Account
             </Link>
-            <a
-              className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors py-space-xs px-space-sm"
-              href="#help"
+            <button
+              onClick={() => setShowRecoveryModal(true)}
+              className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors py-space-xs px-space-sm bg-transparent border-0 cursor-pointer"
+              type="button"
             >
               Help &amp; Inquiries
-            </a>
+            </button>
           </nav>
-          <div className="flex items-center gap-space-md">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+          <div className="flex items-center gap-space-sm md:gap-space-md">
+            <Link
+              href="/create-account"
+              className="md:hidden font-label-md text-primary-container font-semibold py-1 px-2.5 rounded bg-surface-container hover:bg-surface-container-high transition-colors text-xs"
+            >
+              Register
+            </Link>
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-on-primary text-[18px]">
                 person
               </span>
@@ -316,7 +344,7 @@ function SignInForm() {
                 {/* Security and Encryption Trust Stamp */}
                 <div className="p-space-sm bg-surface-container-low rounded flex items-center gap-space-sm text-on-surface-variant">
                   <span className="material-symbols-outlined text-[18px] text-secondary">
-                    verified_user
+                    encrypted
                   </span>
                   <div className="flex flex-col">
                     <span className="font-label-code text-label-code uppercase tracking-wider text-secondary">
@@ -330,72 +358,91 @@ function SignInForm() {
               </div>
             </div>
 
-            {/* Right Column: Architectural Visual Framing */}
+            {/* Right Column: Architectural Visual Framing (Atmospheric Optical Study) */}
             <div className="lg:col-span-7 flex flex-col items-center justify-center p-space-sm md:p-space-lg">
-              <div className="w-full max-w-xl bg-surface-container-lowest p-space-lg rounded shadow-[0_2px_12px_rgba(24,24,27,0.04)] border border-outline-variant/30 flex flex-col gap-space-md">
-                {/* Draft Status Header */}
-                <div className="flex items-center justify-between pb-space-xs border-b border-outline-variant/20">
-                  <div className="flex items-center gap-space-xs font-label-code text-label-code text-outline uppercase">
-                    <span className="text-primary-container font-semibold">
-                      Project: Scatter-Optics-V8
+              {/* Mount Presentation Container */}
+              <div className="w-full max-w-xl bg-surface-container-lowest p-space-md md:p-space-lg rounded shadow-sm">
+                {/* Framing Header Info (Micro-metadata) */}
+                <div className="flex items-center justify-between pb-space-sm mb-space-sm">
+                  <div className="flex items-center gap-space-xs">
+                    <span className="font-label-code text-label-code uppercase text-primary font-medium tracking-wider">
+                      PROJECT: SCATTER-OPTICS-V8
                     </span>
-                    <span>/</span>
-                    <span>Draft 03</span>
+                    <span className="font-label-code text-label-code text-outline">/ DRAFT 03</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-                    <span className="font-label-code text-label-code text-secondary font-medium uppercase">
+                  <div className="flex items-center gap-space-xs">
+                    <span className="inline-block w-2 h-2 rounded-full bg-secondary"></span>
+                    <span className="font-label-code text-label-code uppercase text-outline">
                       9:16 Canvas Validated
                     </span>
                   </div>
                 </div>
 
-                {/* Split Graphic Canvas Preview */}
-                <div className="grid grid-cols-2 gap-space-sm">
-                  <div className="relative aspect-[9/16] bg-surface-container rounded overflow-hidden shadow-inner group">
+                {/* Dual Vertical Gallery Showcase */}
+                <div className="grid grid-cols-2 gap-space-sm md:gap-space-md items-center">
+                  {/* Image Frame 1: Diagrammatic Ray Dispersion */}
+                  <div className="relative group rounded overflow-hidden shadow-sm bg-surface-container aspect-[9/16]">
                     <img
-                      alt="Atmospheric scattering schematic"
+                      alt="Exquisite technical and astronomical infographic of planet Earth illuminated by intense diagonal solar radiation, displaying atmospheric dispersion layers"
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQmX_m9uGj_1i4z4jG8K7n-4B6k9m9w0e2r5t7y8u1i3o5p7a9s1d3f5g7h9j1k3l5z7x9c1v3b5n7m9"
+                      src="/assets/stitch/sign_in_dispersion.jpg"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-space-sm">
-                      <span className="font-label-code text-[10px] text-white/70 uppercase">
-                        Polar Aurorae
+                    {/* Overlay Metadata Plate */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-transparent flex flex-col justify-end p-space-sm text-on-primary">
+                      <span className="font-label-code text-label-code uppercase tracking-widest text-primary-fixed">
+                        Dispersion Geometry
                       </span>
-                      <p className="font-headline-sm text-sm text-white font-light">
-                        Planetary Ionosphere Ionization
-                      </p>
+                      <span className="font-body-sm text-body-sm font-medium">
+                        Solar Flux in Mesosphere
+                      </span>
                     </div>
                   </div>
 
-                  <div className="relative aspect-[9/16] bg-surface-container rounded overflow-hidden shadow-inner group">
+                  {/* Image Frame 2: Sunset Atmospheric Gradient & Typography */}
+                  <div className="relative group rounded overflow-hidden shadow-sm bg-surface-container aspect-[9/16]">
                     <img
-                      alt="Solar wavelength schematic"
+                      alt="Photographic golden hour horizon showing Rayleigh scattering in the sky with delicate typographic annotations"
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1m2n3b4v5c6x7z8l9k0j1h2g3f4d5s6a7p8o9i0u1y2t3r4e5w6q7"
+                      src="/assets/stitch/sign_in_sunset.jpg"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-space-sm">
-                      <span className="font-label-code text-[10px] text-white/70 uppercase">
-                        Rayleigh vs Mie
+                    {/* Overlay Metadata Plate */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-tertiary/80 via-transparent to-transparent flex flex-col justify-end p-space-sm text-on-primary">
+                      <span className="font-label-code text-label-code uppercase tracking-widest text-tertiary-fixed">
+                        Wavelength Attenuation
                       </span>
-                      <p className="font-headline-sm text-sm text-white font-light">
-                        Atmospheric Scatter Thresholds
-                      </p>
+                      <span className="font-body-sm text-body-sm font-medium">
+                        450nm Blue vs 700nm Red
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Footer Metadata */}
-                <div className="flex items-center justify-between pt-space-xs font-label-code text-label-code text-outline border-t border-outline-variant/20">
-                  <div className="flex items-center gap-space-sm">
-                    <span>AUDIO: ELEVENLABS NEURAL</span>
-                    <span>•</span>
-                    <span>FPS: 30</span>
+                {/* Editorial Specimen Caption Strip */}
+                <div className="mt-space-md p-space-sm bg-surface-container rounded flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+                  <div className="space-y-0.5">
+                    <div className="font-title-md text-title-md text-on-surface flex items-center gap-space-xs">
+                      <span className="material-symbols-outlined text-primary-container text-[18px]">
+                        graphic_eq
+                      </span>
+                      <span>Rayleigh Scattering &amp; Twilight Optics</span>
+                    </div>
+                    <p className="font-label-code text-label-code text-on-surface-variant">
+                      00:58 Duration · Clara Neural narration · 4K Master Render
+                    </p>
                   </div>
-                  <div className="flex items-center gap-1 text-primary-container">
-                    <span className="material-symbols-outlined text-[14px]">tune</span>
-                    <span className="font-medium">Remotion 4.0 Studio Compliant</span>
+                  <div className="flex items-center gap-space-xs shrink-0 self-start sm:self-center">
+                    <span className="px-2 py-0.5 bg-surface-container-lowest text-primary font-label-code text-label-code rounded uppercase tracking-wider font-semibold">
+                      Live Preview
+                    </span>
                   </div>
+                </div>
+
+                {/* Philosophical Footer Quote */}
+                <div className="mt-space-md pt-space-sm border-t-0 flex items-start gap-space-sm">
+                  <span className="font-display-lg text-secondary/30 select-none -mt-3">“</span>
+                  <p className="font-body-lg text-body-lg italic text-on-surface-variant leading-relaxed">
+                    Designed for educators, researchers, and scientific storytellers turning dense ideas into visual clarity.
+                  </p>
                 </div>
               </div>
             </div>

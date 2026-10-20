@@ -18,12 +18,21 @@ export function middleware(request: NextRequest) {
     request.cookies.get("better-auth.session_token")?.value ||
     request.cookies.get("__Secure-better-auth.session_token")?.value;
 
+  // Fast pre-filter for studio API endpoints
+  if (pathname.startsWith("/api/studio") && !sessionToken) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required." } },
+      { status: 401 }
+    );
+  }
+
   const isAuthPage = pathname === "/sign-in" || pathname === "/create-account";
   const isProtectedPage =
     pathname === "/your-videos" ||
     pathname === "/welcome" ||
     pathname === "/settings" ||
-    pathname.startsWith("/studio");
+    pathname === "/studio" ||
+    pathname.startsWith("/studio/");
 
   // If user visits an auth page with an active session token, route to protected library
   if (isAuthPage && sessionToken) {
@@ -45,4 +54,3 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };
-
