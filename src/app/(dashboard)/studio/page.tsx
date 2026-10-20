@@ -175,7 +175,7 @@ function StudioPageContent() {
   // Create new run from topic or fixture
   const handleCreateDraft = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!topicInput.trim()) return;
+    if (!topicInput.trim() || loading) return;
 
     setLoading(true);
     setNotice(null);
@@ -195,7 +195,10 @@ function StudioPageContent() {
       }
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create draft");
+      if (!res.ok) {
+        const errorMsg = data?.error?.message || (typeof data?.error === "string" ? data.error : "Failed to create draft");
+        throw new Error(errorMsg);
+      }
 
       setActiveRunPath(data.runPath);
       setPlan(data.plan);
@@ -779,7 +782,8 @@ function StudioPageContent() {
                 <div className="flex items-center gap-space-sm self-start md:self-center">
                   <button
                     onClick={() => handleCreateDraft()}
-                    className="inline-flex items-center gap-1.5 px-space-md py-space-xs rounded bg-surface-container-lowest border border-outline-variant text-on-surface font-title-md text-body-sm hover:bg-surface-container transition-all active:translate-y-0.5 cursor-pointer"
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 px-space-md py-space-xs rounded bg-surface-container-lowest border border-outline-variant text-on-surface font-title-md text-body-sm hover:bg-surface-container transition-all active:translate-y-0.5 cursor-pointer disabled:opacity-50"
                     type="button"
                   >
                     <span className="material-symbols-outlined text-[16px]">refresh</span>

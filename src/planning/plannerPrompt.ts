@@ -27,6 +27,7 @@ Strict rules for output:
    - Allowed visual object kinds: ${JSON.stringify(VISUAL_OBJECT_KINDS)}
    - Allowed animation actions: ${JSON.stringify(ANIMATION_ACTIONS)}
    - Allowed voice presets: ${JSON.stringify(VOICE_PRESETS)}
+   - Optional visualVariant: If provided, must be a dot-namespaced visual variant ID, such as universal generic variants ("generic.title-hook", "generic.labeled-diagram", "generic.process-flow", "generic.step-sequence", "generic.comparison", "generic.takeaway") or domain-specific variants for recognized topics. When in doubt, omit visualVariant or use the matching "generic.<type>" variant.
 6. Narration & Semantic Cues:
    - Each scene must have 1 to 4 narration blocks with unique, stable ids (e.g. "nar-1-1", "nar-1-2").
    - Each visual animation event MUST reference an exact phrase found in that scene's narration block via:

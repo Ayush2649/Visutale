@@ -50,12 +50,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json(
+        { error: { code: "INVALID_REQUEST", message: "Invalid JSON request body." } },
+        { status: 400 }
+      );
+    }
+
     const { topic, notes, voicePreset, fixtureId } = body;
 
     if (!topic && !fixtureId) {
       return NextResponse.json(
-        { error: "A topic premise or benchmark fixture ID is required." },
+        { error: { code: "INVALID_REQUEST", message: "A topic premise or benchmark fixture ID is required." } },
         { status: 400 }
       );
     }
@@ -71,9 +78,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, ...result }, { status: 201 });
   } catch (err: any) {
-    return NextResponse.json(
-      { error: err?.message || "Failed to create studio run" },
-      { status: 400 }
-    );
+    const statusCode = typeof err?.statusCode === "number" ? err.statusCode : (err?.code === "UNAUTHORIZED" ? 401 : 500);
+    const safeError = {
+      code: err?.code || (statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_FAILED"),
+      message: err?.message || "Failed to create studio run",
+      ...(err?.issues ? { issues: err.issues } : {}),
+      ...(err?.provider ? { provider: err.provider } : {}),
+      ...(err?.isRetryable !== undefined ? { isRetryable: err.isRetryable } : {}),
+    };
+    return NextResponse.json({ error: safeError }, { status: statusCode });
   }
 }

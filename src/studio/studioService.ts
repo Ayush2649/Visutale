@@ -13,6 +13,7 @@ import { readConfig } from "../config/env.js";
 import type { StoryboardPlan, VoicePreset } from "../contracts/plan.js";
 import { getStudioJobManager, StudioJobRegistry, type StudioJob } from "./studioJobManager.js";
 import type { RunManifest } from "../contracts/manifest.js";
+import { RequestValidationError } from "../providers/geminiPlanner.js";
 
 const fixtureRoot = path.resolve(process.cwd(), "fixtures", "plans");
 
@@ -237,7 +238,7 @@ export async function createStudioRun(options: {
 
   // Otherwise, live generation via Gemini
   if (!config.geminiApiKey) {
-    throw new Error(
+    throw new RequestValidationError(
       "GEMINI_API_KEY environment variable is required to generate new custom topics with AI. Alternatively, select one of the built-in benchmark fixtures (Water Cycle, RAM vs Storage, Binary Search)."
     );
   }
