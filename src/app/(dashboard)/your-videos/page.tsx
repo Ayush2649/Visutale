@@ -22,12 +22,14 @@ export default function YourVideosPage() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeCardMenuId, setActiveCardMenuId] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     async function fetchSession() {
       try {
         const res = await fetch("/api/session");
-        if (res.ok) {
+        if (res.ok && isMounted) {
           const json = await res.json();
           if (json?.data?.user) {
             setCurrentUser(json.data.user);
@@ -38,12 +40,21 @@ export default function YourVideosPage() {
       }
     }
     fetchSession();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push("/sign-in");
-    router.refresh();
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } catch (err) {
+      console.error("Sign out error in your-videos:", err);
+    } finally {
+      window.location.href = "/sign-in";
+    }
   };
 
   const sampleVideos = [
@@ -213,11 +224,16 @@ export default function YourVideosPage() {
                 </Link>
                 <button
                   onClick={handleSignOut}
-                  className="w-full text-left px-3 py-2 text-body-sm font-body-sm text-error hover:bg-error-container/20 flex items-center gap-2 bg-transparent border-0 cursor-pointer"
+                  disabled={isSigningOut}
+                  className={`w-full text-left px-3 py-2 text-body-sm font-body-sm text-error hover:bg-error-container/20 flex items-center gap-2 bg-transparent border-0 cursor-pointer ${
+                    isSigningOut ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
                   type="button"
                 >
-                  <span className="material-symbols-outlined text-[16px]">logout</span>
-                  Sign Out
+                  <span className="material-symbols-outlined text-[16px]">
+                    {isSigningOut ? "progress_activity" : "logout"}
+                  </span>
+                  {isSigningOut ? "Signing Out..." : "Sign Out"}
                 </button>
               </div>
             )}

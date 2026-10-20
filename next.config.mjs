@@ -9,6 +9,13 @@ const nextConfig = {
       "@rspack/core",
       "esbuild",
     ],
+    outputFileTracingExcludes: {
+      "*": [
+        "./node_modules/@remotion/**",
+        "./node_modules/@rspack/**",
+        "./node_modules/esbuild/**",
+      ],
+    },
   },
   webpack: (config, { isServer }) => {
     config.resolve.extensionAlias = {
