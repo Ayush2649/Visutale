@@ -20,6 +20,8 @@ export default function YourVideosPage() {
   const [sortOption, setSortOption] = useState("Newest first");
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [activeCardMenuId, setActiveCardMenuId] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchSession() {
@@ -132,16 +134,16 @@ export default function YourVideosPage() {
     <>
       {/* Editorial Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-md border-b border-outline-variant">
-        <div className="h-16 w-full max-w-[1400px] mx-auto px-margin flex items-center justify-between">
-          <div className="flex items-center gap-space-md">
+        <div className="h-16 w-full max-w-[1400px] mx-auto px-margin-mobile sm:px-margin flex items-center justify-between">
+          <div className="flex items-center gap-space-sm sm:gap-space-md">
             <Link className="flex items-center gap-space-xs group" href="/your-videos">
               <span className="font-headline-md text-headline-md text-primary tracking-tight font-normal">
                 Visutale
               </span>
               <span className="w-1.5 h-1.5 rounded-full bg-primary-container mb-1"></span>
             </Link>
-            <div className="h-4 w-[1px] bg-outline-variant"></div>
-            <div className="flex items-center gap-space-xs">
+            <div className="hidden sm:block h-4 w-[1px] bg-outline-variant"></div>
+            <div className="hidden sm:flex items-center gap-space-xs">
               <span className="font-label-code text-label-code text-on-surface-variant uppercase tracking-wider">
                 Workspace /
               </span>
@@ -150,10 +152,10 @@ export default function YourVideosPage() {
               </span>
             </div>
           </div>
-          <nav className="flex items-center gap-gutter h-16">
+          <nav className="flex items-center gap-space-md sm:gap-gutter h-16">
             <Link
               className="text-on-surface-variant hover:text-on-surface font-title-md text-title-md h-full flex items-center px-space-xs transition-colors border-b-2 border-transparent"
-              href="/welcome"
+              href="/studio"
             >
               Create
             </Link>
@@ -265,6 +267,26 @@ export default function YourVideosPage() {
                 </Link>
               </div>
             </div>
+
+            {/* Action Notice Notification Banner */}
+            {actionNotice && (
+              <div className="mb-space-md p-space-sm bg-surface-container-high rounded-lg border border-outline-variant/60 flex items-center justify-between text-on-surface font-body-sm text-body-sm">
+                <div className="flex items-center gap-space-xs">
+                  <span className="material-symbols-outlined text-primary-container text-[18px]">
+                    info
+                  </span>
+                  <span>{actionNotice}</span>
+                </div>
+                <button
+                  aria-label="Dismiss notice"
+                  className="p-1 rounded text-outline hover:text-on-surface transition-colors cursor-pointer bg-transparent border-0 flex items-center justify-center"
+                  onClick={() => setActionNotice(null)}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[16px]">close</span>
+                </button>
+              </div>
+            )}
 
             {/* Toolbar: Search, Filters & View Mode Segmented Switch */}
             <div className="bg-surface-container-lowest rounded-xl p-space-sm shadow-sm mb-space-xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-space-md">
@@ -416,7 +438,7 @@ export default function YourVideosPage() {
                       </div>
                       <div className="absolute bottom-space-sm left-space-sm right-space-sm flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                         <Link
-                          href="/welcome"
+                          href="/studio"
                           className="px-2.5 py-1 rounded bg-white/90 hover:bg-white text-on-surface font-body-sm text-body-sm flex items-center gap-1 shadow-sm transition-colors"
                         >
                           <span className="material-symbols-outlined text-[15px]">movie</span>
@@ -424,14 +446,16 @@ export default function YourVideosPage() {
                         </Link>
                         <div className="flex items-center gap-1">
                           <button
-                            className="w-7 h-7 rounded bg-white/90 hover:bg-white text-on-surface flex items-center justify-center shadow-sm transition-colors"
+                            aria-label="Download MP4"
+                            className="w-7 h-7 rounded bg-white/90 hover:bg-white text-on-surface flex items-center justify-center shadow-sm transition-colors cursor-pointer"
                             title="Download MP4"
                             type="button"
                           >
                             <span className="material-symbols-outlined text-[15px]">download</span>
                           </button>
                           <button
-                            className="w-7 h-7 rounded bg-white/90 hover:bg-white text-on-surface flex items-center justify-center shadow-sm transition-colors"
+                            aria-label="Duplicate Script"
+                            className="w-7 h-7 rounded bg-white/90 hover:bg-white text-on-surface flex items-center justify-center shadow-sm transition-colors cursor-pointer"
                             title="Duplicate Script"
                             type="button"
                           >
@@ -461,13 +485,66 @@ export default function YourVideosPage() {
                           <span className="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
                           <span>{video.updated}</span>
                         </div>
-                        <button
-                          aria-label="More options"
-                          className="w-7 h-7 rounded hover:bg-surface-container flex items-center justify-center text-secondary hover:text-on-surface transition-colors"
-                          type="button"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">more_vert</span>
-                        </button>
+                        <div className="relative">
+                          <button
+                            aria-label="More options"
+                            className="w-7 h-7 rounded hover:bg-surface-container flex items-center justify-center text-secondary hover:text-on-surface transition-colors cursor-pointer"
+                            onClick={() =>
+                              setActiveCardMenuId(activeCardMenuId === video.id ? null : video.id)
+                            }
+                            type="button"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                          </button>
+                          {activeCardMenuId === video.id && (
+                            <div className="absolute right-0 bottom-full mb-1 w-44 bg-surface-container-lowest rounded-lg shadow-xl py-1 z-30 border border-outline-variant/40">
+                              <button
+                                className="w-full text-left px-3 py-1.5 text-body-sm font-body-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 cursor-pointer bg-transparent border-0"
+                                onClick={() => {
+                                  setActionNotice(`Renaming for "${video.title}" will open in Studio Manuscript.`);
+                                  setActiveCardMenuId(null);
+                                }}
+                                type="button"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">edit</span>
+                                Rename
+                              </button>
+                              <button
+                                className="w-full text-left px-3 py-1.5 text-body-sm font-body-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 cursor-pointer bg-transparent border-0"
+                                onClick={() => {
+                                  setActionNotice(`Master 1080p render download available in Studio Archive.`);
+                                  setActiveCardMenuId(null);
+                                }}
+                                type="button"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">download</span>
+                                Download video
+                              </button>
+                              <button
+                                className="w-full text-left px-3 py-1.5 text-body-sm font-body-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 cursor-pointer bg-transparent border-0"
+                                onClick={() => {
+                                  setActionNotice(`Prompt duplicated. You can initiate a new synthesis.`);
+                                  setActiveCardMenuId(null);
+                                }}
+                                type="button"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">copy_all</span>
+                                Duplicate prompt
+                              </button>
+                              <button
+                                className="w-full text-left px-3 py-1.5 text-body-sm font-body-sm text-error hover:bg-error-container/20 flex items-center gap-2 cursor-pointer bg-transparent border-0"
+                                onClick={() => {
+                                  setActionNotice(`Sample Codex manuscripts are read-only benchmark plates.`);
+                                  setActiveCardMenuId(null);
+                                }}
+                                type="button"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">delete</span>
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </article>

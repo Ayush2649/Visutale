@@ -23,6 +23,15 @@ export const auth = betterAuth({
         },
       }
     : {},
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: isGoogleConfigured ? ["google"] : [],
+    },
+  },
+  onAPIError: {
+    errorURL: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/sign-in`,
+  },
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days (API_DESIGN section 3)
     updateAge: 60 * 60 * 24, // Refresh token window 1 day

@@ -78,6 +78,7 @@ export default function CreateAccountPage() {
       const result = await signIn.social({
         provider: "google",
         callbackURL: "/welcome",
+        errorCallbackURL: "/sign-in",
       });
 
       if (result?.error) {
@@ -102,11 +103,11 @@ export default function CreateAccountPage() {
             <span className="font-headline-sm text-headline-sm text-on-surface tracking-tight font-normal italic">
               Visutale
             </span>
-            <span className="font-label-code text-label-code text-outline uppercase">
+            <span className="font-label-code text-label-code text-outline uppercase hidden sm:inline">
               • Precision Narrative Instrument
             </span>
           </div>
-          <nav className="flex items-center gap-space-lg">
+          <nav className="hidden md:flex items-center gap-space-lg">
             <Link
               className="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors py-space-xs px-space-sm"
               href="/sign-in"
@@ -127,8 +128,14 @@ export default function CreateAccountPage() {
               Help &amp; Inquiries
             </a>
           </nav>
-          <div className="flex items-center gap-space-md">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+          <div className="flex items-center gap-space-sm md:gap-space-md">
+            <Link
+              href="/sign-in"
+              className="md:hidden font-label-md text-primary-container font-semibold py-1 px-2.5 rounded bg-surface-container hover:bg-surface-container-high transition-colors text-xs"
+            >
+              Sign In
+            </Link>
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-on-primary text-[18px]">
                 person
               </span>
@@ -394,7 +401,7 @@ export default function CreateAccountPage() {
                   <img
                     alt="Minimalist scientific educational artwork depicting Rayleigh scattering"
                     className="w-full h-full object-cover object-center group-hover:scale-[1.02] transition-transform duration-700 ease-out"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJOD4hO2yGIG39_Yij4jvN1XLDl_M6ad_JdgE8dvP7TT8xiKiMAWHWF9DpEZCg-mNFu4gGlRH-oCpnr93gV6Z79m3tuSTipBNW7Sx4E41tmpGffldkplJ-X9W-JVBnAf5W_2Gbr5aQ4hisL3pL54EFZ2UUoyZu4AbzwGfFfB1QU0WcwOP-nk7rXLYFt_SW9LFVC87yD8OoqkulEc31e3B00NqyuqJI_Vw8AxSvtTkqwr0DLWVL5Nvv"
+                    src="/assets/stitch/create_account_plate04.jpg"
                   />
                   {/* Overlay Minimalist Annotations / Scientific HUD Markers */}
                   <div className="absolute inset-0 p-space-md flex flex-col justify-between pointer-events-none bg-gradient-to-t from-black/60 via-transparent to-black/20">
