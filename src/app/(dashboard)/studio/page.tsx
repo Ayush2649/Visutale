@@ -60,24 +60,11 @@ function StudioPageContent() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(58);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
-  // Fetch session & recent runs & fixtures on mount
+  // Fetch recent runs & fixtures & user session in a single consolidated request on mount
   useEffect(() => {
-    fetch("/api/session")
-      .then((res) => {
-        if (res.status === 401) {
-          window.location.href = `/sign-in?callbackUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-          return null;
-        }
-        return res.json();
-      })
-      .then((sessionData) => {
-        if (sessionData?.data?.user) {
-          setCurrentUser(sessionData.data.user);
-        }
-      })
-      .catch(() => {});
-
+    let isMounted = true;
     fetch("/api/studio/runs")
       .then((res) => {
         if (res.status === 401) {
@@ -87,7 +74,7 @@ function StudioPageContent() {
         return res.json();
       })
       .then((data) => {
-        if (!data) return;
+        if (!data || !isMounted) return;
         if (data.runs) setRecentRuns(data.runs);
         if (data.fixtures) setAvailableFixtures(data.fixtures);
         if (data.user) setCurrentUser(data.user);
@@ -102,8 +89,26 @@ function StudioPageContent() {
           loadRun(data.runs[0].runId || data.runs[0].runPath);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error("Studio initial load error:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [queryRunPath, queryFixture]);
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } catch (err) {
+      console.error("Studio sign out error:", err);
+    } finally {
+      window.location.href = "/sign-in";
+    }
+  };
 
   // Polling for progress when in progress mode
   useEffect(() => {
@@ -466,14 +471,16 @@ function StudioPageContent() {
                     <span>Link Google Account</span>
                   </button>
                   <button
-                    onClick={async () => {
-                      await signOut();
-                      window.location.href = "/sign-in";
-                    }}
-                    className="w-full mt-1 px-3 py-2 text-left font-body-sm text-error hover:bg-error-container/20 rounded-lg flex items-center gap-2 cursor-pointer border-0 bg-transparent transition-colors"
+                    onClick={handleSignOut}
+                    disabled={isSigningOut}
+                    className={`w-full mt-1 px-3 py-2 text-left font-body-sm text-error hover:bg-error-container/20 rounded-lg flex items-center gap-2 cursor-pointer border-0 bg-transparent transition-colors ${
+                      isSigningOut ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
                   >
-                    <span className="material-symbols-outlined text-[16px]">logout</span>
-                    <span>Sign Out</span>
+                    <span className="material-symbols-outlined text-[16px]">
+                      {isSigningOut ? "progress_activity" : "logout"}
+                    </span>
+                    <span>{isSigningOut ? "Signing Out..." : "Sign Out"}</span>
                   </button>
                 </div>
               )}

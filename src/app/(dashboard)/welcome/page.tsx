@@ -10,11 +10,18 @@ export default function WelcomePage() {
   const [showSampleModal, setShowSampleModal] = useState(false);
   const [promptText, setPromptText] = useState("");
   const [promptNotice, setPromptNotice] = useState<string | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push("/sign-in");
-    router.refresh();
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } catch (err) {
+      console.error("Sign out error in welcome:", err);
+    } finally {
+      window.location.href = "/sign-in";
+    }
   };
 
   const handleGenerateDraft = (e: React.FormEvent) => {
@@ -51,9 +58,12 @@ export default function WelcomePage() {
             </Link>
             <button
               onClick={handleSignOut}
-              className="font-body-sm text-body-sm text-on-surface-variant hover:text-error transition-colors py-space-xs px-space-sm bg-transparent border-0 cursor-pointer"
+              disabled={isSigningOut}
+              className={`font-body-sm text-body-sm text-on-surface-variant hover:text-error transition-colors py-space-xs px-space-sm bg-transparent border-0 cursor-pointer ${
+                isSigningOut ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
-              Sign Out
+              {isSigningOut ? "Signing Out..." : "Sign Out"}
             </button>
           </nav>
           <div className="flex items-center gap-space-md">
