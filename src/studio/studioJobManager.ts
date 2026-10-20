@@ -5,6 +5,7 @@ import {
   readRunManifest,
   resolveRunPath,
 } from "../pipeline/runService.js";
+import type { PipelineStage, RunManifest } from "../contracts/manifest.js";
 
 export interface StudioTelemetryLog {
   timestamp: string;
@@ -349,6 +350,7 @@ export class StudioJobRegistry {
           message: `Packaging validated: 1080x1920 @ 30fps master render ready (${(videoStat.size / (1024 * 1024)).toFixed(1)} MB).`,
         });
       } catch (renderError: any) {
+        const failedJobStage = job.stage;
         job.status = "failed";
         job.stage = "failed";
         job.error = renderError?.message || "Render failed";
@@ -361,15 +363,20 @@ export class StudioJobRegistry {
 
         try {
           const currentManifest = await readRunManifest(this.store, runPath);
-          const updatedManifest = {
+          let pipelineStage: PipelineStage = currentManifest.stage;
+          if (failedJobStage === "voiceover") pipelineStage = "speech";
+          else if (failedJobStage === "compositor") pipelineStage = "render";
+          else if (failedJobStage === "packaging") pipelineStage = "validate";
+
+          const updatedManifest: RunManifest = {
             ...currentManifest,
             state: "failed" as const,
-            stage: job.stage,
+            stage: pipelineStage,
             updatedAt: new Date().toISOString(),
             error: {
               code: "RENDER_FAILED",
               message: renderError?.message || "Render failed",
-              stage: job.stage,
+              stage: pipelineStage,
             },
           };
           await this.store.writeJson(runDir, "manifest.json", updatedManifest);

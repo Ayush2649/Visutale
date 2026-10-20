@@ -242,6 +242,98 @@ test("Gemini Provider: HTTP 503 respects Retry-After header", async () => {
   assert.equal(recordedSleeps[0], 4000, "Must respect 4-second Retry-After header exactly");
 });
 
+test("Gemini Provider: HTTP 429 rate limit is treated as transient and retries with backoff", async () => {
+  const basePlan = await loadBasePlan();
+  const mockPlanOutput = JSON.stringify({
+    topic: basePlan.topic,
+    audience: basePlan.audience,
+    learningObjective: basePlan.learningObjective,
+    language: "en",
+    voicePreset: basePlan.voicePreset,
+    scenes: basePlan.scenes,
+    warnings: [],
+  });
+
+  let fetchCallCount = 0;
+  const recordedSleeps: number[] = [];
+
+  const mockFetch = async () => {
+    fetchCallCount++;
+    if (fetchCallCount === 1) {
+      return {
+        ok: false,
+        status: 429,
+        headers: new Headers(),
+        text: async () => JSON.stringify({ error: { code: 429, message: "Resource exhausted", status: "RESOURCE_EXHAUSTED" } }),
+      } as any;
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: mockPlanOutput }] } }],
+      }),
+    } as any;
+  };
+
+  const plan = await generateStoryboardWithGemini({
+    topic: basePlan.topic,
+    apiKey: "mock-key",
+    model: "gemini-3.8-flash",
+    maxRetries: 2,
+    fetchFn: mockFetch as any,
+    sleepFn: async (ms) => { recordedSleeps.push(ms); },
+  });
+
+  assert.equal(fetchCallCount, 2);
+  assert.equal(recordedSleeps.length, 1);
+  assert.ok(recordedSleeps[0] >= 1000);
+  assert.equal(plan.topic, basePlan.topic);
+});
+
+test("Gemini Provider: Local request timeout (AbortError) is retried within total budget", async () => {
+  const basePlan = await loadBasePlan();
+  const mockPlanOutput = JSON.stringify({
+    topic: basePlan.topic,
+    audience: basePlan.audience,
+    learningObjective: basePlan.learningObjective,
+    language: "en",
+    voicePreset: basePlan.voicePreset,
+    scenes: basePlan.scenes,
+    warnings: [],
+  });
+
+  let fetchCallCount = 0;
+
+  const mockFetch = async () => {
+    fetchCallCount++;
+    if (fetchCallCount === 1) {
+      const abortErr = new Error("This operation was aborted");
+      abortErr.name = "AbortError";
+      throw abortErr;
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: mockPlanOutput }] } }],
+      }),
+    } as any;
+  };
+
+  const plan = await generateStoryboardWithGemini({
+    topic: basePlan.topic,
+    apiKey: "mock-key",
+    model: "gemini-3.8-flash",
+    maxRetries: 2,
+    fetchFn: mockFetch as any,
+    sleepFn: async () => {},
+  });
+
+  assert.equal(fetchCallCount, 2, "Must retry after local abort error");
+  assert.equal(plan.topic, basePlan.topic);
+});
+
 test("Gemini Provider: HTTP 503 after all retries throws ProviderUnavailableError (status 503)", async () => {
   let fetchCallCount = 0;
   const mockFetch = async () => {

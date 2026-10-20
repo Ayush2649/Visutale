@@ -117,8 +117,8 @@ export async function generateStoryboardWithGemini(
     ownerId = "local-owner",
     versionId = "v1",
     maxRetries = 3,
-    totalTimeoutMs = 45000,
-    requestTimeoutMs = 20000,
+    totalTimeoutMs = 240000,
+    requestTimeoutMs = 120000,
     fetchFn = globalThis.fetch,
     sleepFn = sleep,
   } = options;
@@ -206,8 +206,9 @@ export async function generateStoryboardWithGemini(
         // Transient errors (429, 500, 502, 503, 504) retry with bounded backoff and jitter
         const isTransient = response.status === 429 || response.status >= 500;
         if (isTransient) {
+          const errorType = response.status === 429 ? "rate-limited" : "busy/unavailable";
           lastTransientError = new ProviderUnavailableError(
-            `Gemini model busy/unavailable (HTTP ${response.status}${parsedStatus ? ` - ${parsedStatus}` : ""}): ${parsedErrorMsg}`
+            `Gemini model ${errorType} (HTTP ${response.status}${parsedStatus ? ` - ${parsedStatus}` : ""}): ${parsedErrorMsg}`
           );
 
           if (attempts > maxRetries) {
@@ -271,7 +272,9 @@ export async function generateStoryboardWithGemini(
       }
 
       const isAbort = err instanceof Error && err.name === "AbortError";
-      const errMessage = isAbort ? `Request timed out after ${currentTimeoutMs}ms` : (err instanceof Error ? err.message : String(err));
+      const errMessage = isAbort
+        ? `Request timed out locally (aborted by client after ${currentTimeoutMs}ms before provider response received)`
+        : (err instanceof Error ? err.message : String(err));
 
       lastTransientError = new ProviderUnavailableError(`Gemini transient network error: ${errMessage}`);
 
