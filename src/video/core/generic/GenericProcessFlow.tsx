@@ -1,9 +1,12 @@
 import React from "react";
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { THEME } from "../theme.js";
-import { SceneContainer } from "../SceneContainer.js";
-import { VisualStageCard, AnimatedBadge } from "../primitives/CommonPrimitives.js";
 import type { SceneProps } from "../contracts/visualTypes.js";
+import { SceneContainer } from "../SceneContainer.js";
+import {
+  CinematicEnvironment,
+  HUDHeaderPill,
+  SafeCalloutCard,
+} from "../primitives/index.js";
 
 export const GenericProcessFlow: React.FC<SceneProps> = ({
   scene,
@@ -33,55 +36,36 @@ export const GenericProcessFlow: React.FC<SceneProps> = ({
       topic={topic}
       sceneIndex={sceneIndex}
       totalScenes={totalScenes}
-      stepTitle={title}
       progress={globalProgress}
+      layoutMode="cinematic"
     >
-      <VisualStageCard width={936} height={1040}>
-        {/* Header */}
-        <div style={{ padding: "32px 40px 16px 40px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ maxWidth: 680 }}>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 36,
-                  fontWeight: 800,
-                  color: THEME.colors.textPrimary,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {title}
-              </h2>
-              <p style={{ margin: "8px 0 0 0", fontSize: 22, color: THEME.colors.textMuted, fontWeight: 500 }}>
-                {subtitle}
-              </p>
-            </div>
-            <AnimatedBadge
-              label="Process Flow"
-              frame={frame}
-              revealFrame={5}
-              color={THEME.colors.waterBlueDark}
-              bgColor={THEME.colors.waterBlueLight}
-            />
-          </div>
-        </div>
+      <CinematicEnvironment theme="tech-dark" showGrid>
+        <HUDHeaderPill
+          icon="⚡"
+          category="SEQUENTIAL PROCESS & FLOW"
+          color="#10B981"
+          borderColor="rgba(16, 185, 129, 0.4)"
+        />
 
-        {/* Sequential Stages Flow Area */}
+        {/* Central Visual Pipeline Stage */}
         <div
           style={{
-            flex: 1,
-            padding: "20px 40px 32px 40px",
+            position: "absolute",
+            top: 250,
+            left: 72,
+            right: 72,
+            height: 1140,
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
-            gap: 20,
+            gap: 22,
           }}
         >
           {stages.map((stg, i) => {
             const isActive = i === activeStageIndex;
             const isCompleted = i < activeStageIndex;
             const spr = spring({
-              frame: Math.max(0, frame - i * 20),
+              frame: Math.max(0, frame - i * 16),
               fps,
               config: { damping: 14, stiffness: 120 },
             });
@@ -92,77 +76,79 @@ export const GenericProcessFlow: React.FC<SceneProps> = ({
                 style={{
                   opacity: interpolate(spr, [0, 1], [0, 1]),
                   transform: `scale(${interpolate(spr, [0, 1], [0.94, 1])})`,
-                  backgroundColor: isActive ? "#EFF6FF" : isCompleted ? "#F8FAFC" : "#FFFFFF",
-                  border: `2px solid ${isActive ? THEME.colors.waterBlue : isCompleted ? "#CBD5E1" : THEME.colors.border}`,
-                  borderRadius: 20,
-                  padding: "20px 24px",
+                  background: isActive
+                    ? "rgba(16, 185, 129, 0.16)"
+                    : isCompleted
+                    ? "rgba(15, 23, 42, 0.6)"
+                    : "rgba(15, 23, 42, 0.8)",
+                  border: `1.5px solid ${isActive ? "#10B981" : isCompleted ? "rgba(16, 185, 129, 0.4)" : "rgba(255, 255, 255, 0.1)"}`,
+                  borderRadius: 22,
+                  padding: "22px 28px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   boxShadow: isActive
-                    ? "0 8px 24px rgba(37,99,235,0.12)"
-                    : "0 4px 12px rgba(15,23,42,0.03)",
+                    ? "0 12px 28px rgba(16, 185, 129, 0.25), 0 0 16px rgba(16, 185, 129, 0.2)"
+                    : "0 8px 20px rgba(0,0,0,0.4)",
+                  backdropFilter: "blur(14px)",
                   transition: "all 0.2s ease",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
                   <div
                     style={{
-                      width: 44,
-                      height: 44,
+                      width: 50,
+                      height: 50,
                       borderRadius: 14,
-                      backgroundColor: isCompleted
-                        ? THEME.colors.plantGreen
-                        : isActive
-                        ? THEME.colors.waterBlue
-                        : "#F1F5F9",
-                      color: isCompleted || isActive ? "#FFFFFF" : THEME.colors.textMuted,
+                      background: isCompleted ? "#10B981" : isActive ? "#38BDF8" : "rgba(255,255,255,0.08)",
+                      color: isCompleted || isActive ? "#0F172A" : "#94A3B8",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 20,
-                      fontWeight: 800,
+                      fontSize: 22,
+                      fontWeight: 900,
+                      boxShadow: isActive ? "0 0 15px #38BDF8" : "none",
                     }}
                   >
                     {isCompleted ? "✓" : i + 1}
                   </div>
                   <div>
-                    <div
-                      style={{
-                        fontSize: 22,
-                        fontWeight: 800,
-                        color: isActive ? THEME.colors.waterBlueDeep : THEME.colors.textPrimary,
-                      }}
-                    >
+                    <div style={{ color: "#FFFFFF", fontSize: 22, fontWeight: 800 }}>
                       {stg.label}
                     </div>
-                    <div style={{ fontSize: 14, color: THEME.colors.textMuted, marginTop: 2 }}>
-                      Step {i + 1} of {stages.length} • {stg.kind}
+                    <div style={{ color: isActive ? "#38BDF8" : "#94A3B8", fontSize: 13, marginTop: 4, textTransform: "uppercase" }}>
+                      Phase {i + 1} • {isActive ? "Active State" : isCompleted ? "Completed" : "Pending"}
                     </div>
                   </div>
                 </div>
 
-                {isActive && (
-                  <div
-                    style={{
-                      backgroundColor: THEME.colors.waterBlue,
-                      color: "#FFFFFF",
-                      padding: "6px 14px",
-                      borderRadius: 10,
-                      fontSize: 13,
-                      fontWeight: 800,
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    ACTIVE
-                  </div>
-                )}
+                {/* Status Indicator */}
+                <div
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 12,
+                    background: isActive ? "rgba(56, 189, 248, 0.2)" : "rgba(255,255,255,0.05)",
+                    border: `1px solid ${isActive ? "#38BDF8" : "transparent"}`,
+                    color: isActive ? "#38BDF8" : "#64748B",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  {isActive ? "PROCESSING" : isCompleted ? "VERIFIED" : "STANDBY"}
+                </div>
               </div>
             );
           })}
         </div>
-      </VisualStageCard>
+
+        {/* Safe Callout Card */}
+        <SafeCalloutCard
+          icon="⚡"
+          title={title}
+          description={subtitle}
+          accentColor="#10B981"
+        />
+      </CinematicEnvironment>
     </SceneContainer>
   );
 };
-

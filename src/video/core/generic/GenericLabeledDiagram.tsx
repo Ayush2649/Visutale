@@ -1,10 +1,14 @@
 import React from "react";
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { THEME } from "../theme.js";
-import { SceneContainer } from "../SceneContainer.js";
-import { VisualStageCard, AnimatedBadge } from "../primitives/CommonPrimitives.js";
-import { isEventActiveInScene, getEventSpringProgress } from "../sharedAnimationUtilities.js";
 import type { SceneProps } from "../contracts/visualTypes.js";
+import { SceneContainer } from "../SceneContainer.js";
+import {
+  CinematicEnvironment,
+  HUDHeaderPill,
+  SafeCalloutCard,
+  SmartText,
+} from "../primitives/index.js";
+import { isEventActiveInScene, getEventSpringProgress } from "../sharedAnimationUtilities.js";
 
 export const GenericLabeledDiagram: React.FC<SceneProps> = ({
   scene,
@@ -19,109 +23,116 @@ export const GenericLabeledDiagram: React.FC<SceneProps> = ({
   const title = scene.onScreenText[0] ?? "Labeled Diagram";
   const subtitle = scene.onScreenText[1] ?? scene.purpose;
 
+  const spr = spring({
+    frame,
+    fps,
+    config: { damping: 14, mass: 0.8 },
+  });
+
+  const contentOpacity = interpolate(spr, [0, 1], [0, 1]);
+  const nodeCount = Math.max(1, scene.objects.length);
+  const pulseLoop = (frame * 6) % 360;
+
   return (
     <SceneContainer
       topic={topic}
       sceneIndex={sceneIndex}
       totalScenes={totalScenes}
-      stepTitle={title}
       progress={globalProgress}
+      layoutMode="cinematic"
     >
-      <VisualStageCard width={936} height={1040}>
-        {/* Header */}
-        <div style={{ padding: "32px 40px 16px 40px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ maxWidth: 680 }}>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 36,
-                  fontWeight: 800,
-                  color: THEME.colors.textPrimary,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {title}
-              </h2>
-              <p style={{ margin: "8px 0 0 0", fontSize: 22, color: THEME.colors.textMuted, fontWeight: 500 }}>
-                {subtitle}
-              </p>
-            </div>
-            <AnimatedBadge
-              label="Diagram"
-              frame={frame}
-              revealFrame={5}
-              color={THEME.colors.waterBlueDark}
-              bgColor={THEME.colors.waterBlueLight}
-            />
-          </div>
-        </div>
+      <CinematicEnvironment theme="tech-dark" showGrid>
+        <HUDHeaderPill
+          icon="🔬"
+          category="DIAGRAM & COMPONENT ARCHITECTURE"
+          color="#38BDF8"
+          borderColor="rgba(56, 189, 248, 0.4)"
+        />
 
-        {/* Dynamic Diagram Visual Stage */}
+        {/* Central Visual Constellation Stage */}
         <div
           style={{
-            flex: 1,
-            padding: "16px 40px 32px 40px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "center",
+            position: "absolute",
+            top: 250,
+            left: 72,
+            right: 72,
+            height: 1140,
+            opacity: contentOpacity,
           }}
         >
+          {/* Radial Hub and Satellite SVG Grid */}
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: scene.objects.length > 2 ? "1fr 1fr" : "1fr",
-              gap: 20,
               width: "100%",
-              maxWidth: 820,
+              height: 720,
+              display: "grid",
+              gridTemplateColumns: nodeCount > 3 ? "1fr 1fr" : "1fr",
+              gap: 24,
+              alignContent: "center",
+              marginTop: 40,
             }}
           >
             {scene.objects.map((obj, i) => {
               const isActive = isEventActiveInScene(scene, obj.id, frame);
-              const spr = getEventSpringProgress(scene, obj.id, frame, fps, i * 15);
+              const nodeSpr = getEventSpringProgress(scene, obj.id, frame, fps, i * 12);
+              const scale = interpolate(nodeSpr, [0, 1], [0.92, 1]);
+              const op = interpolate(nodeSpr, [0, 1], [0, 1]);
+
               return (
                 <div
                   key={obj.id}
                   style={{
-                    opacity: interpolate(spr, [0, 1], [0, 1]),
-                    transform: `scale(${interpolate(spr, [0, 1], [0.92, 1])})`,
-                    backgroundColor: isActive ? THEME.colors.waterBlueLight : "#FFFFFF",
-                    border: `2px solid ${isActive ? THEME.colors.waterBlue : THEME.colors.border}`,
-                    borderRadius: 18,
+                    opacity: op,
+                    transform: `scale(${scale})`,
+                    background: isActive ? "rgba(56, 189, 248, 0.16)" : "rgba(15, 23, 42, 0.8)",
+                    border: `1.5px solid ${isActive ? "#38BDF8" : "rgba(255, 255, 255, 0.12)"}`,
+                    borderRadius: 24,
                     padding: "24px 28px",
-                    boxShadow: isActive
-                      ? "0 8px 24px rgba(37,99,235,0.12)"
-                      : "0 4px 12px rgba(15,23,42,0.04)",
                     display: "flex",
                     alignItems: "center",
-                    gap: 16,
+                    gap: 20,
+                    boxShadow: isActive
+                      ? "0 12px 30px rgba(56, 189, 248, 0.3), 0 0 15px rgba(56, 189, 248, 0.2)"
+                      : "0 8px 24px rgba(0,0,0,0.4)",
+                    backdropFilter: "blur(14px)",
                     transition: "all 0.2s ease",
                   }}
                 >
+                  {/* Step / Node Number Badge */}
                   <div
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 12,
-                      backgroundColor: isActive ? THEME.colors.waterBlue : "#F1F5F9",
-                      color: isActive ? "#FFFFFF" : THEME.colors.textPrimary,
+                      width: 52,
+                      height: 52,
+                      borderRadius: 16,
+                      background: isActive ? "#38BDF8" : "rgba(255, 255, 255, 0.08)",
+                      color: isActive ? "#0F172A" : "#FFFFFF",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 22,
-                      fontWeight: 800,
+                      fontSize: 24,
+                      fontWeight: 900,
                       flexShrink: 0,
+                      boxShadow: isActive ? "0 0 16px #38BDF8" : "none",
                     }}
                   >
                     {i + 1}
                   </div>
+
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: THEME.colors.textPrimary }}>
+                    <div style={{ color: "#FFFFFF", fontSize: 24, fontWeight: 800 }}>
                       {obj.label}
                     </div>
-                    <div style={{ fontSize: 15, color: THEME.colors.textMuted, marginTop: 2 }}>
-                      Type: {obj.kind}
+                    <div
+                      style={{
+                        color: isActive ? "#38BDF8" : "#94A3B8",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        marginTop: 4,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      {obj.kind} • Concept Node
                     </div>
                   </div>
                 </div>
@@ -129,8 +140,15 @@ export const GenericLabeledDiagram: React.FC<SceneProps> = ({
             })}
           </div>
         </div>
-      </VisualStageCard>
+
+        {/* Safe Callout Card */}
+        <SafeCalloutCard
+          icon="🔬"
+          title={title}
+          description={subtitle}
+          accentColor="#38BDF8"
+        />
+      </CinematicEnvironment>
     </SceneContainer>
   );
 };
-

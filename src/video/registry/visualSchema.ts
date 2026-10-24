@@ -6,7 +6,49 @@ export type VisualDomain =
   | "photosynthesis"
   | "computer-architecture"
   | "algorithms"
-  | "generic";
+  | "optics"
+  | "solar"
+  | "telecom"
+  | "generic"
+  | "template";
+
+export type ReusableTemplateVariantId =
+  | "template.concept-hook"
+  | "template.kinetic-process"
+  | "template.physical-transformation"
+  | "template.wave-transmission"
+  | "template.data-sampling"
+  | "template.conduit-flow"
+  | "template.cutaway-anatomy"
+  | "template.dual-comparison"
+  | "template.closed-loop-system"
+  | "template.summary-takeaway";
+
+export type TelecomVariantId =
+  | "telecom.city-hook"
+  | "telecom.microphone-acoustic"
+  | "telecom.digital-sampling"
+  | "telecom.cell-tower"
+  | "telecom.fiber-network"
+  | "telecom.speaker-acoustic"
+  | "telecom.two-way-loop";
+
+export type SolarVariantId =
+  | "solar.rooftop-hook"
+  | "solar.panel-structure"
+  | "solar.cell-photovoltaic"
+  | "solar.circuit-flow"
+  | "solar.inverter-home"
+  | "solar.battery-storage"
+  | "solar.takeaway";
+
+export type OpticsVariantId =
+  | "optics.title-hook"
+  | "optics.prism-spectrum"
+  | "optics.earth-atmosphere"
+  | "optics.rayleigh-scattering"
+  | "optics.sunset-path"
+  | "optics.takeaway";
 
 export type WaterCycleVariantId =
   | "water-cycle.title-hook"
@@ -52,7 +94,11 @@ export type VisualVariantId =
   | PhotosynthesisVariantId
   | ComputerArchitectureVariantId
   | AlgorithmVariantId
-  | GenericVariantId;
+  | OpticsVariantId
+  | SolarVariantId
+  | TelecomVariantId
+  | GenericVariantId
+  | ReusableTemplateVariantId;
 
 export interface VisualRegistryEntry {
   id: VisualVariantId;

@@ -50,7 +50,30 @@ const DOMAIN_EXCLUSIVE_VOCABULARY: Record<VisualDomain, readonly string[]> = {
     "precipitation rainfall",
     "hydrological loop",
   ],
+  optics: [
+    "prism spectrum",
+    "rayleigh scattering",
+    "dispersion wavelength",
+    "refraction angle",
+  ],
+  solar: [
+    "photovoltaic cell",
+    "p-n junction",
+    "solar inverter",
+    "electron excitation",
+    "silicon wafer",
+    "direct current dc",
+  ],
+  telecom: [
+    "cellular tower",
+    "mems diaphragm",
+    "radio frequency rf",
+    "analog to digital adc",
+    "fiber optic backbone",
+    "loudspeaker voice coil",
+  ],
   generic: [],
+  template: [],
 };
 
 /**

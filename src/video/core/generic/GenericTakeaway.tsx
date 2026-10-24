@@ -1,9 +1,12 @@
 import React from "react";
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { THEME } from "../theme.js";
-import { SceneContainer } from "../SceneContainer.js";
-import { VisualStageCard, AnimatedBadge } from "../primitives/CommonPrimitives.js";
 import type { SceneProps } from "../contracts/visualTypes.js";
+import { SceneContainer } from "../SceneContainer.js";
+import {
+  CinematicEnvironment,
+  HUDHeaderPill,
+  TakeawayInsightCard,
+} from "../primitives/index.js";
 
 export const GenericTakeaway: React.FC<SceneProps> = ({
   scene,
@@ -32,143 +35,61 @@ export const GenericTakeaway: React.FC<SceneProps> = ({
     config: { damping: 14, mass: 0.9 },
   });
 
+  const contentOpacity = interpolate(spr, [0, 1], [0, 1]);
+
   return (
     <SceneContainer
       topic={topic}
       sceneIndex={sceneIndex}
       totalScenes={totalScenes}
-      stepTitle={title}
       progress={globalProgress}
+      layoutMode="cinematic"
     >
-      <VisualStageCard width={936} height={1040}>
+      <CinematicEnvironment theme="tech-dark" showGrid>
+        <HUDHeaderPill
+          icon="🎯"
+          category="KEY EDUCATIONAL TAKEAWAYS"
+          color="#38BDF8"
+          borderColor="rgba(56, 189, 248, 0.4)"
+        />
+
+        {/* Central Takeaway Cards Stage */}
         <div
           style={{
-            position: "relative",
-            width: "100%",
-            height: "100%",
+            position: "absolute",
+            top: 250,
+            left: 72,
+            right: 72,
+            height: 1200,
+            opacity: contentOpacity,
             display: "flex",
             flexDirection: "column",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "36px 40px",
-            boxSizing: "border-box",
+            gap: 20,
+            justifyContent: "center",
           }}
         >
-          {/* Header */}
-          <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <div style={{ fontSize: 34, fontWeight: 800, color: THEME.colors.textPrimary }}>
-                {title}
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 600, color: THEME.colors.textSecondary, marginTop: 4 }}>
-                {subtitle}
-              </div>
-            </div>
-            <AnimatedBadge
-              label="Summary"
-              frame={frame}
-              revealFrame={5}
-              color={THEME.colors.waterBlueDark}
-              bgColor={THEME.colors.waterBlueLight}
-              fontSize={20}
-            />
-          </div>
-
-          {/* Central Takeaway Cards */}
-          <div
-            style={{
-              width: "100%",
-              display: "flex",
-              flexDirection: "column",
-              gap: 16,
-              margin: "24px 0",
-            }}
-          >
-            {takeawayItems.map((item, i) => {
-              const cardSpr = spring({
-                frame: Math.max(0, frame - 10 - i * 15),
-                fps,
-                config: { damping: 14, stiffness: 120 },
-              });
-
-              return (
-                <div
-                  key={item.id}
-                  style={{
-                    opacity: interpolate(cardSpr, [0, 1], [0, 1]),
-                    transform: `scale(${interpolate(cardSpr, [0, 1], [0.94, 1])})`,
-                    backgroundColor: "#FFFFFF",
-                    border: `2px solid ${THEME.colors.border}`,
-                    borderRadius: 20,
-                    padding: "22px 24px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 18,
-                    boxShadow: "0 6px 18px rgba(15,23,42,0.04)",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 14,
-                      backgroundColor: THEME.colors.waterBlueLight,
-                      color: THEME.colors.waterBlueDark,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 22,
-                      fontWeight: 800,
-                    }}
-                  >
-                    {i + 1}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: THEME.colors.textPrimary }}>
-                      {item.label}
-                    </div>
-                    <div style={{ fontSize: 14, color: THEME.colors.textMuted, marginTop: 2 }}>
-                      Summary Point {i + 1} • {item.kind}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Footer Banner */}
-          <div
-            style={{
-              width: "100%",
-              backgroundColor: "#0F172A",
-              borderRadius: 20,
-              padding: "18px 24px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              boxShadow: "0 8px 24px rgba(15,23,42,0.18)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <span style={{ fontSize: 26 }}>✨</span>
-              <span style={{ fontSize: 20, fontWeight: 700, color: "#FFFFFF" }}>
-                Core Takeaway Summary
-              </span>
-            </div>
-            <span
-              style={{
-                fontSize: 14,
-                fontWeight: 800,
-                color: "#94A3B8",
-                letterSpacing: "0.04em",
-              }}
-            >
-              COMPLETE
-            </span>
-          </div>
+          {takeawayItems.slice(0, 3).map((item, idx) => {
+            const colors = ["#38BDF8", "#F59E0B", "#10B981"];
+            const color = colors[idx % colors.length];
+            return (
+              <TakeawayInsightCard
+                key={item.id}
+                stepNumber={idx + 1}
+                icon={idx === 0 ? "💡" : idx === 1 ? "⚡" : "🎯"}
+                title={item.label}
+                description={
+                  idx === 0 && subtitle
+                    ? subtitle
+                    : `Core scientific principle demonstrated in ${item.label}`
+                }
+                color={color}
+                bg={`${color}15`}
+                border={`${color}44`}
+              />
+            );
+          })}
         </div>
-      </VisualStageCard>
+      </CinematicEnvironment>
     </SceneContainer>
   );
 };
-

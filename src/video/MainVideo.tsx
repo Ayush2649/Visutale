@@ -21,6 +21,25 @@ export function inferTopic(timeline: CompiledTimeline): string {
   if (project.includes("photo") || project.includes("plant")) return "How Photosynthesis Works";
   if (/\bram\b/.test(project) || project.includes("storage")) return "RAM vs Storage";
   if (project.includes("search") || project.includes("binary")) return "Binary Search";
+  if (project.includes("sunset") || project.includes("sky") || project.includes("optics") || project.includes("light")) {
+    return "Why the Sky Turns Orange and Red at Sunset";
+  }
+  if (
+    project.includes("solar") ||
+    project.includes("photovoltaic") ||
+    (project.includes("sun") && project.includes("electr"))
+  ) {
+    return "How Solar Panels Turn Sunlight into Electricity";
+  }
+  if (
+    project.includes("phone") ||
+    project.includes("call") ||
+    project.includes("telecom") ||
+    project.includes("cellular") ||
+    project.includes("talk-to-some")
+  ) {
+    return "How Mobile Phone Calls Travel Across Distance";
+  }
 
   for (const scene of timeline.scenes) {
     const text = (scene.onScreenText || []).join(" ").toLowerCase();
@@ -29,6 +48,27 @@ export function inferTopic(timeline: CompiledTimeline): string {
     if (text.includes("photo") || text.includes("plant") || purpose.includes("photo") || purpose.includes("plant")) return "How Photosynthesis Works";
     if (/\bram\b/.test(text) || text.includes("storage") || /\bram\b/.test(purpose)) return "RAM vs Storage";
     if (text.includes("binary") || text.includes("search") || purpose.includes("search")) return "Binary Search";
+    if (text.includes("sunset") || text.includes("sky") || text.includes("scatter") || purpose.includes("sunset") || purpose.includes("sky")) {
+      return "Why the Sky Turns Orange and Red at Sunset";
+    }
+    if (
+      text.includes("solar") ||
+      text.includes("photovoltaic") ||
+      purpose.includes("solar") ||
+      (purpose.includes("sunlight") && purpose.includes("electr"))
+    ) {
+      return "How Solar Panels Turn Sunlight into Electricity";
+    }
+    if (
+      text.includes("phone") ||
+      text.includes("cellular") ||
+      text.includes("tower") ||
+      purpose.includes("phone") ||
+      purpose.includes("microphone") ||
+      purpose.includes("cellular")
+    ) {
+      return "How Mobile Phone Calls Travel Across Distance";
+    }
   }
   return "Technical Explainer";
 }
@@ -36,7 +76,7 @@ export function inferTopic(timeline: CompiledTimeline): string {
 export const MainVideo: React.FC<MainVideoProps> = ({ timeline }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
-  const topic = inferTopic(timeline);
+  const topic = timeline.topic || inferTopic(timeline);
 
   // Find active caption across all scenes
   let currentCaptionText: string | null = null;
@@ -104,7 +144,7 @@ export function renderSceneComponent(
   };
 
   // Resolve visual variant: prefer explicit scene variant, fallback to deterministic legacy resolution
-  const variantId: VisualVariantId = (scene.visualVariant as VisualVariantId) ?? resolveLegacyVariant(scene, topic);
+  const variantId: VisualVariantId = resolveLegacyVariant(scene, topic);
 
   // Validate visual selection against topic to guarantee 0% cross-topic contamination
   validateVisualSelection(topic, variantId);

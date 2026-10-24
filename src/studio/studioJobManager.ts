@@ -13,6 +13,17 @@ export interface StudioTelemetryLog {
   message: string;
 }
 
+export interface CheckpointInfo {
+  hasPlan: boolean;
+  hasApproval: boolean;
+  hasAudio: boolean;
+  audioScenesCount: number;
+  totalScenes: number;
+  wordCount: number;
+  voiceName?: string;
+  missingArtifacts: string[];
+}
+
 export interface StudioJob {
   jobId: string;
   runPath: string;
@@ -30,6 +41,7 @@ export interface StudioJob {
   completedAt?: string;
   outputVideoPath?: string;
   videoSizeBytes?: number;
+  checkpoint?: CheckpointInfo;
 }
 
 function sanitizeId(ownerId: string): string {
@@ -40,6 +52,7 @@ function sanitizeId(ownerId: string): string {
 
 export class StudioJobRegistry {
   private jobs = new Map<string, StudioJob>();
+  private inFlightStarts = new Map<string, Promise<StudioJob>>();
   private store: LocalArtifactStore;
 
   constructor(store?: LocalArtifactStore) {
@@ -92,6 +105,8 @@ export class StudioJobRegistry {
       throw err;
     }
 
+    const checkpoint = await this.inspectCheckpoint(runPath, manifest);
+
     const videoRel = manifest.artifacts.outputVideo || "output.mp4";
     const videoAbs = path.join(runDir, videoRel);
 
@@ -128,6 +143,7 @@ export class StudioJobRegistry {
         completedAt: manifest.updatedAt,
         outputVideoPath: videoAbs,
         videoSizeBytes,
+        checkpoint,
       };
     }
 
@@ -149,6 +165,7 @@ export class StudioJobRegistry {
         error: errMsg,
         startedAt: manifest.createdAt,
         updatedAt: manifest.updatedAt,
+        checkpoint,
       };
     }
 
@@ -168,6 +185,73 @@ export class StudioJobRegistry {
       error: null,
       startedAt: manifest.createdAt,
       updatedAt: manifest.updatedAt,
+      checkpoint,
+    };
+  }
+
+  async inspectCheckpoint(runPath: string, manifest: RunManifest): Promise<CheckpointInfo> {
+    const runDir = resolveRunPath(this.store, runPath);
+    let hasPlan = false;
+    let wordCount = 0;
+    let totalScenes = 0;
+    const missingArtifacts: string[] = [];
+
+    try {
+      const rawPlan = await this.store.readJson<any>(runDir, "plan.json").catch(() => null);
+      if (rawPlan && Array.isArray(rawPlan.scenes)) {
+        hasPlan = true;
+        totalScenes = rawPlan.scenes.length;
+        wordCount = rawPlan.scenes.reduce(
+          (acc: number, s: any) =>
+            acc +
+            (Array.isArray(s.narration)
+              ? s.narration
+                  .map((n: any) => n.text || "")
+                  .join(" ")
+                  .split(/\s+/)
+                  .filter(Boolean).length
+              : 0),
+          0
+        );
+      } else {
+        missingArtifacts.push("plan.json");
+      }
+    } catch {
+      missingArtifacts.push("plan.json");
+    }
+
+    const hasApproval = Boolean(manifest.artifacts.approval);
+    if (!hasApproval) missingArtifacts.push("approval.json");
+
+    let audioScenesCount = 0;
+    if (totalScenes > 0 && manifest.artifacts.audio && manifest.artifacts.alignment) {
+      try {
+        const rawPlan = await this.store.readJson<any>(runDir, "plan.json");
+        for (const s of rawPlan.scenes) {
+          const aRel = path.join(manifest.artifacts.audio, `${s.id}.mp3`);
+          const alRel = path.join(manifest.artifacts.alignment, `${s.id}.json`);
+          if ((await this.store.exists(runDir, aRel)) && (await this.store.exists(runDir, alRel))) {
+            audioScenesCount++;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (totalScenes > 0 && audioScenesCount < totalScenes) {
+      missingArtifacts.push(`audio (${audioScenesCount}/${totalScenes} scenes present)`);
+    }
+
+    return {
+      hasPlan,
+      hasApproval,
+      hasAudio: totalScenes > 0 && audioScenesCount === totalScenes,
+      audioScenesCount,
+      totalScenes,
+      wordCount,
+      voiceName: manifest.provenance?.voiceName,
+      missingArtifacts,
     };
   }
 
@@ -184,6 +268,24 @@ export class StudioJobRegistry {
       return existing;
     }
 
+    const inFlight = this.inFlightStarts.get(runPath);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const startPromise = (async () => {
+      try {
+        return await this.executeStartRenderJob(runPath, ownerId);
+      } finally {
+        this.inFlightStarts.delete(runPath);
+      }
+    })();
+
+    this.inFlightStarts.set(runPath, startPromise);
+    return startPromise;
+  }
+
+  private async executeStartRenderJob(runPath: string, ownerId?: string): Promise<StudioJob> {
     // 2. Verify run manifest and approval
     const runDir = resolveRunPath(this.store, runPath);
     let manifest = await readRunManifest(this.store, runPath);

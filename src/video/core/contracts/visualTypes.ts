@@ -1,4 +1,5 @@
 import type { CompiledScene } from "../../../contracts/timeline.js";
+export * from "./visualDataSchema.js";
 
 export interface SceneProps {
   scene: CompiledScene;
@@ -13,10 +14,14 @@ export type VisualDomain =
   | "water-cycle"
   | "computer-architecture"
   | "algorithms"
+  | "optics"
+  | "solar"
+  | "telecom"
   | "generic";
 
 export interface VisualVariantValidationResult {
   valid: boolean;
   errors: string[];
 }
+
 

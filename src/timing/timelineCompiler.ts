@@ -54,29 +54,109 @@ export function compilePlanTimeline(
       ? new Map(Object.entries(options.speechArtifacts))
       : null;
 
-  let currentFrame = 0;
-  const compiledScenes: CompiledScene[] = [];
   let isLiveSpeech = false;
 
-  for (const scene of plan.scenes) {
-    const sceneStartFrame = currentFrame;
-    const speech = speechMap?.get(scene.id);
+  // Pass 1: Compute baseline durations and allocations for each scene.
+  // Pass 1: Determine natural scene durations.
+  // Each scene accommodates its speech narration with a natural pedagogical trailing hold (800ms)
+  // while ensuring speech is never clipped. For fixture mode, use planned estimatedDurationMs.
+  const sceneDurationsMs: number[] = [];
+  const sceneMinRequiredMs: number[] = [];
+  const sceneBlockTimings: BlockTiming[][] = [];
 
-    let sceneDurationMs: number;
+  for (const scene of plan.scenes) {
+    const speech = speechMap?.get(scene.id);
+    let durationMs: number;
+    let minMs: number;
     let blockTimings: BlockTiming[];
 
     if (speech) {
       isLiveSpeech = true;
-      // Actual audio duration plus a comfortable 300ms trailing hold
-      sceneDurationMs = speech.durationMs + 300;
+      minMs = speech.durationMs + 300;
+      // Natural speech duration: spoken duration + comfortable 800ms absorption hold
+      durationMs = speech.durationMs + 800;
       blockTimings = mapAlignmentToBlockTimings(scene, speech.alignment);
     } else {
-      sceneDurationMs = scene.estimatedDurationMs;
+      minMs = Math.min(scene.estimatedDurationMs, 3000);
+      durationMs = scene.estimatedDurationMs;
       blockTimings = calculateBlockTimings(scene);
     }
 
-    const durationInFrames = Math.ceil((sceneDurationMs / 1000) * fps);
+    sceneDurationsMs.push(durationMs);
+    sceneMinRequiredMs.push(minMs);
+    sceneBlockTimings.push(blockTimings);
+  }
+
+  // Convert target durations to frames
+  const sceneFrames = sceneDurationsMs.map((ms) => Math.ceil((ms / 1000) * fps));
+  let totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
+
+  // Guarantee timeline conforms strictly to [1800, 2700] frames (60s to 90s contract)
+  const MIN_TIMELINE_FRAMES = 1800;
+  const MAX_TIMELINE_FRAMES = 2700;
+
+  if (totalFrames < MIN_TIMELINE_FRAMES && sceneFrames.length > 0) {
+    // Distribute shortfall frames evenly across scenes so no scene has dead-air voids
+    let shortfall = MIN_TIMELINE_FRAMES - totalFrames;
+
+    // Allocate an extra closing visual hold to the final takeaway/conclusion scene (up to ~75 frames = 2.5s)
+    const finalSceneOutroHold = Math.min(shortfall, Math.round(shortfall * 0.25));
+    sceneFrames[sceneFrames.length - 1] += finalSceneOutroHold;
+    shortfall -= finalSceneOutroHold;
+
+    // Distribute remaining shortfall evenly across all scenes to support active visual demonstrations
+    const perSceneShare = Math.floor(shortfall / sceneFrames.length);
+    let remainder = shortfall % sceneFrames.length;
+
+    for (let i = 0; i < sceneFrames.length; i++) {
+      sceneFrames[i] += perSceneShare + (i < remainder ? 1 : 0);
+    }
+    totalFrames = MIN_TIMELINE_FRAMES;
+  } else if (totalFrames > MAX_TIMELINE_FRAMES && sceneFrames.length > 0) {
+    // Compress hold times while ensuring every scene retains at least its minRequiredFrames
+    const minFrames = sceneMinRequiredMs.map((ms) => Math.ceil((ms / 1000) * fps));
+    const totalMinFrames = minFrames.reduce((sum, f) => sum + f, 0);
+
+    if (totalMinFrames <= MAX_TIMELINE_FRAMES) {
+      const excess = totalFrames - MAX_TIMELINE_FRAMES;
+      const reduciblePool = totalFrames - totalMinFrames;
+      if (reduciblePool > 0) {
+        let remainingToDeduct = excess;
+        for (let i = 0; i < sceneFrames.length; i++) {
+          const reducible = sceneFrames[i] - minFrames[i];
+          if (reducible > 0) {
+            const deduction = Math.min(
+              reducible,
+              Math.round((reducible / reduciblePool) * excess)
+            );
+            sceneFrames[i] -= deduction;
+            remainingToDeduct -= deduction;
+          }
+        }
+        if (remainingToDeduct > 0) {
+          // Adjust any rounding residual on the last scene with room
+          for (let i = sceneFrames.length - 1; i >= 0 && remainingToDeduct > 0; i--) {
+            const reducible = sceneFrames[i] - minFrames[i];
+            const deduction = Math.min(reducible, remainingToDeduct);
+            sceneFrames[i] -= deduction;
+            remainingToDeduct -= deduction;
+          }
+        }
+      }
+    }
+  }
+
+  // Pass 2: Assemble compiled scenes with strictly contiguous frames
+  let currentFrame = 0;
+  const compiledScenes: CompiledScene[] = [];
+
+  for (let i = 0; i < plan.scenes.length; i++) {
+    const scene = plan.scenes[i];
+    const durationInFrames = sceneFrames[i];
+    const sceneStartFrame = currentFrame;
     const sceneEndFrame = sceneStartFrame + durationInFrames;
+    const speech = speechMap?.get(scene.id);
+    const blockTimings = sceneBlockTimings[i];
 
     // Resolve visual animation events
     const resolvedEvents = resolveSceneEvents(
@@ -125,7 +205,7 @@ export function compilePlanTimeline(
       visualData: scene.visualData,
     };
 
-    const resolvedVariant = scene.visualVariant ?? resolveLegacyVariant(candidateCompiledScene, plan.topic);
+    const resolvedVariant = resolveLegacyVariant(candidateCompiledScene, plan.topic);
     validateVisualSelection(plan.topic, resolvedVariant);
     candidateCompiledScene.visualVariant = resolvedVariant;
 

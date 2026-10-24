@@ -8,70 +8,24 @@ import {
   buildPlannerSystemPrompt,
   buildPlannerUserPrompt,
 } from "../planning/plannerPrompt.js";
+import { normalizeStoryboardPlan } from "../planning/storyboardNormalizer.js";
+import {
+  ProviderUnavailableError,
+  ProviderTimeoutError,
+  ModelOutputValidationError,
+  RequestValidationError,
+  ProviderAuthenticationError,
+  ProviderNotFoundError,
+} from "./errors.js";
 
-export class ProviderUnavailableError extends Error {
-  public readonly code = "PROVIDER_UNAVAILABLE";
-  public readonly statusCode = 503;
-  public readonly provider = "gemini";
-  public readonly isRetryable = true;
-  constructor(message: string) {
-    super(message);
-    this.name = "ProviderUnavailableError";
-  }
-}
-
-export class ProviderTimeoutError extends Error {
-  public readonly code = "PROVIDER_TIMEOUT";
-  public readonly statusCode = 504;
-  public readonly provider = "gemini";
-  public readonly isRetryable = true;
-  constructor(message: string) {
-    super(message);
-    this.name = "ProviderTimeoutError";
-  }
-}
-
-export class ModelOutputValidationError extends Error {
-  public readonly code = "MODEL_OUTPUT_INVALID";
-  public readonly statusCode = 502;
-  public readonly issues: Array<{ path: string; message: string }>;
-  constructor(message: string, issues: Array<{ path: string; message: string }> = []) {
-    super(message);
-    this.name = "ModelOutputValidationError";
-    this.issues = issues;
-  }
-}
-
-export class RequestValidationError extends Error {
-  public readonly code = "INVALID_REQUEST";
-  public readonly statusCode = 400;
-  constructor(message: string) {
-    super(message);
-    this.name = "RequestValidationError";
-  }
-}
-
-export class ProviderAuthenticationError extends Error {
-  public readonly code = "PROVIDER_AUTH_ERROR";
-  public readonly statusCode = 401;
-  public readonly provider = "gemini";
-  public readonly isRetryable = false;
-  constructor(message: string) {
-    super(message);
-    this.name = "ProviderAuthenticationError";
-  }
-}
-
-export class ProviderNotFoundError extends Error {
-  public readonly code = "PROVIDER_NOT_FOUND";
-  public readonly statusCode = 404;
-  public readonly provider = "gemini";
-  public readonly isRetryable = false;
-  constructor(message: string) {
-    super(message);
-    this.name = "ProviderNotFoundError";
-  }
-}
+export {
+  ProviderUnavailableError,
+  ProviderTimeoutError,
+  ModelOutputValidationError,
+  RequestValidationError,
+  ProviderAuthenticationError,
+  ProviderNotFoundError,
+};
 
 export interface GenerateStoryboardOptions {
   topic: string;
@@ -314,51 +268,15 @@ export async function generateStoryboardWithGemini(
     );
   }
 
-  const sources: Array<{ id: string; text: string }> = notes
-    ? [{ id: "src-user-notes", text: notes }]
-    : [];
-  const validSourceIds = new Set(sources.map((s) => s.id));
-
-  // Sanitize scenes: ensure sourceRefs only contains valid source IDs and visualVariant is sanitized
-  const sanitizedScenes = Array.isArray(parsedJson.scenes)
-    ? parsedJson.scenes.map((sc: unknown) => {
-        if (!sc || typeof sc !== "object" || Array.isArray(sc)) return sc;
-        const sceneRecord = sc as Record<string, unknown>;
-        const rawRefs = Array.isArray(sceneRecord.sourceRefs) ? sceneRecord.sourceRefs : [];
-        const filteredRefs = rawRefs.filter((r) => typeof r === "string" && validSourceIds.has(r));
-        const res: Record<string, unknown> = {
-          ...sceneRecord,
-          sourceRefs: filteredRefs,
-        };
-        // Normalize visualVariant: trim or remove if empty
-        if (typeof res.visualVariant === "string") {
-          const trimmed = res.visualVariant.trim();
-          if (trimmed.length > 0) {
-            res.visualVariant = trimmed;
-          } else {
-            delete res.visualVariant;
-          }
-        }
-        return res;
-      })
-    : parsedJson.scenes;
-
-  // Apply application-level immutable envelope
-  const candidatePlan: Record<string, unknown> = {
-    schemaVersion: "1.0",
+  // Apply bounded normalization and safe recovery before strict validation
+  const candidatePlan = normalizeStoryboardPlan(parsedJson, {
+    topic,
+    notes,
+    voicePreset,
     projectId,
     ownerId,
     versionId,
-    parentVersionId: null,
-    topic: parsedJson.topic ?? topic,
-    audience: parsedJson.audience ?? "General audience seeking clear visual explanation",
-    learningObjective: parsedJson.learningObjective ?? `Explain ${topic} with clear visual motion graphics`,
-    language: "en",
-    voicePreset: parsedJson.voicePreset ?? voicePreset,
-    sources,
-    scenes: sanitizedScenes,
-    warnings: Array.isArray(parsedJson.warnings) ? parsedJson.warnings : [],
-  };
+  });
 
   // Structural and semantic validation
   const validation = validatePlan(candidatePlan);

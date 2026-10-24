@@ -43,7 +43,30 @@ export class LocalArtifactStore {
     const temporary = `${destination}.tmp-${process.pid}-${Date.now()}`;
     try {
       await writeFile(temporary, contents, { encoding: "utf8", flag: "wx" });
-      await rename(temporary, destination);
+      
+      let renamed = false;
+      let lastErr: unknown;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        try {
+          await rename(temporary, destination);
+          renamed = true;
+          break;
+        } catch (err: unknown) {
+          lastErr = err;
+          const code = (err as { code?: string })?.code;
+          if (code === "EPERM" || code === "EBUSY" || code === "EACCES") {
+            await new Promise((r) => setTimeout(r, 60 * (attempt + 1)));
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      if (!renamed) {
+        // Fallback: write directly to destination if Windows file-lock blocked atomic rename
+        await writeFile(destination, contents, { encoding: "utf8" });
+        await rm(temporary, { force: true }).catch(() => undefined);
+      }
     } catch (error) {
       await rm(temporary, { force: true }).catch(() => undefined);
       throw error;
