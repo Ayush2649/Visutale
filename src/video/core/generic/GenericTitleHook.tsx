@@ -1,9 +1,13 @@
 import React from "react";
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { THEME } from "../theme.js";
-import { SceneContainer } from "../SceneContainer.js";
-import { VisualStageCard, AnimatedBadge } from "../primitives/CommonPrimitives.js";
 import type { SceneProps } from "../contracts/visualTypes.js";
+import { SceneContainer } from "../SceneContainer.js";
+import {
+  CinematicEnvironment,
+  HUDHeaderPill,
+  SafeCalloutCard,
+  SmartText,
+} from "../primitives/index.js";
 
 export const GenericTitleHook: React.FC<SceneProps> = ({
   scene,
@@ -25,158 +29,105 @@ export const GenericTitleHook: React.FC<SceneProps> = ({
     config: { damping: 14, mass: 0.8 },
   });
 
-  const titleOpacity = interpolate(spr, [0, 1], [0, 1]);
-  const titleScale = interpolate(spr, [0, 1], [0.94, 1]);
-
-  const primaryEvent = scene.events[0];
-  const cueFrame = primaryEvent ? Math.max(0, primaryEvent.startFrame - scene.startFrame) : 30;
-  const cueSpr = spring({
-    frame: Math.max(0, frame - cueFrame),
-    fps,
-    config: { damping: 12, mass: 0.7 },
-  });
-  const highlightGlow = interpolate(cueSpr, [0, 1], [0, 1]);
+  const contentOpacity = interpolate(spr, [0, 1], [0, 1]);
+  const ringRotation = frame * 0.4;
+  const pulseScale = 1 + Math.sin(frame * 0.08) * 0.04;
 
   return (
     <SceneContainer
       topic={topic}
       sceneIndex={sceneIndex}
       totalScenes={totalScenes}
-      stepTitle={title}
       progress={globalProgress}
+      layoutMode="cinematic"
     >
-      <VisualStageCard width={936} height={1040}>
+      <CinematicEnvironment theme="tech-dark" showGrid>
+        <HUDHeaderPill
+          icon="✨"
+          category={badgeLabel.toUpperCase()}
+          color="#38BDF8"
+          borderColor="rgba(56, 189, 248, 0.4)"
+        />
+
+        {/* Central Hero Stage */}
         <div
           style={{
-            width: "100%",
-            height: "100%",
-            padding: "48px 48px",
+            position: "absolute",
+            top: 260,
+            left: 72,
+            right: 72,
+            height: 1140,
+            opacity: contentOpacity,
             display: "flex",
             flexDirection: "column",
-            justifyContent: "space-between",
             alignItems: "center",
-            boxSizing: "border-box",
-            position: "relative",
+            justifyContent: "center",
+            gap: 40,
           }}
         >
-          {/* Top Badge */}
-          <div style={{ width: "100%", display: "flex", justifyContent: "flex-end" }}>
-            <AnimatedBadge
-              label={badgeLabel}
-              frame={frame}
-              revealFrame={5}
-              color={THEME.colors.waterBlueDark}
-              bgColor={THEME.colors.waterBlueLight}
-              fontSize={22}
+          {/* Animated Orbital Centerpiece */}
+          <div style={{ position: "relative", width: 440, height: 440, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width={440} height={440} style={{ position: "absolute", inset: 0, transform: `rotate(${ringRotation}deg)` }}>
+              <defs>
+                <linearGradient id="hookGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#38BDF8" />
+                  <stop offset="50%" stopColor="#818CF8" />
+                  <stop offset="100%" stopColor="#F59E0B" />
+                </linearGradient>
+              </defs>
+              <circle cx={220} cy={220} r={190} fill="none" stroke="url(#hookGrad)" strokeWidth={3} strokeDasharray="24 16" opacity={0.6} />
+              <circle cx={220} cy={220} r={150} fill="none" stroke="#38BDF8" strokeWidth={2} strokeDasharray="8 12" opacity={0.4} />
+              <circle cx={220} cy={30} r={10} fill="#38BDF8" style={{ filter: "drop-shadow(0 0 10px #38BDF8)" }} />
+              <circle cx={380} cy={300} r={8} fill="#F59E0B" style={{ filter: "drop-shadow(0 0 10px #F59E0B)" }} />
+              <circle cx={50} cy={280} r={7} fill="#818CF8" style={{ filter: "drop-shadow(0 0 10px #818CF8)" }} />
+            </svg>
+
+            {/* Glowing Core Orb */}
+            <div
+              style={{
+                width: 220,
+                height: 220,
+                borderRadius: "50%",
+                background: "radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, rgba(15, 23, 42, 0.9) 70%)",
+                border: "2px solid rgba(56, 189, 248, 0.5)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                transform: `scale(${pulseScale})`,
+                boxShadow: "0 0 45px rgba(56, 189, 248, 0.35)",
+              }}
+            >
+              <div style={{ fontSize: 56 }}>💡</div>
+              <div style={{ color: "#38BDF8", fontSize: 13, fontWeight: 800, letterSpacing: "0.08em", marginTop: 8 }}>
+                VISUTALE
+              </div>
+            </div>
+          </div>
+
+          {/* Central Title Plate */}
+          <div style={{ width: "100%", maxWidth: 840, textAlign: "center" }}>
+            <SmartText
+              text={title}
+              maxFontSize={48}
+              minFontSize={32}
+              maxWidth={840}
+              maxLines={3}
+              color="#FFFFFF"
+              fontWeight={900}
+              lineHeightMultiplier={1.2}
             />
           </div>
-
-          {/* Central Title Hero */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              textAlign: "center",
-              maxWidth: 780,
-              opacity: titleOpacity,
-              transform: `scale(${titleScale})`,
-            }}
-          >
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 48,
-                fontWeight: 800,
-                color: THEME.colors.textPrimary,
-                lineHeight: 1.2,
-                letterSpacing: "-0.02em",
-                textShadow: `0 0 24px rgba(37,99,235,${highlightGlow * 0.25})`,
-              }}
-            >
-              {title}
-            </h1>
-            <p
-              style={{
-                margin: "18px 0 0 0",
-                fontSize: 24,
-                color: THEME.colors.textSecondary,
-                fontWeight: 500,
-                lineHeight: 1.4,
-              }}
-            >
-              {subtitle}
-            </p>
-          </div>
-
-          {/* Structured Objects Grid */}
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 760,
-              display: "grid",
-              gridTemplateColumns: scene.objects.length > 2 ? "1fr 1fr" : "1fr",
-              gap: 16,
-            }}
-          >
-            {scene.objects.map((obj, i) => {
-              const objSpr = spring({
-                frame: Math.max(0, frame - 20 - i * 15),
-                fps,
-                config: { damping: 14, stiffness: 120 },
-              });
-              return (
-                <div
-                  key={obj.id}
-                  style={{
-                    opacity: interpolate(objSpr, [0, 1], [0, 1]),
-                    transform: `scale(${interpolate(objSpr, [0, 1], [0.93, 1])})`,
-                    backgroundColor: "#FFFFFF",
-                    border: `2px solid ${THEME.colors.border}`,
-                    borderRadius: 18,
-                    padding: "20px 24px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 14,
-                    boxShadow: "0 4px 14px rgba(15,23,42,0.04)",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: THEME.colors.waterBlueLight,
-                      color: THEME.colors.waterBlueDark,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 800,
-                      fontSize: 18,
-                    }}
-                  >
-                    {i + 1}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: THEME.colors.textPrimary }}>
-                      {obj.label}
-                    </div>
-                    <div style={{ fontSize: 13, color: THEME.colors.textMuted, marginTop: 2 }}>
-                      Type: {obj.kind}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Footer note */}
-          <div style={{ fontSize: 16, color: THEME.colors.textMuted, fontWeight: 600 }}>
-            {scene.objects.length} Core Elements • Structured Explainer
-          </div>
         </div>
-      </VisualStageCard>
+
+        {/* Safe Callout Card */}
+        <SafeCalloutCard
+          icon="💡"
+          title={title}
+          description={subtitle}
+          accentColor="#38BDF8"
+        />
+      </CinematicEnvironment>
     </SceneContainer>
   );
 };
-

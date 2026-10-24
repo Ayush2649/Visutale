@@ -13,6 +13,7 @@ import { readConfig } from "../config/env.js";
 import type { StoryboardPlan, VoicePreset } from "../contracts/plan.js";
 import { getStudioJobManager, StudioJobRegistry, type StudioJob } from "./studioJobManager.js";
 import type { RunManifest } from "../contracts/manifest.js";
+import { RequestValidationError } from "../providers/geminiPlanner.js";
 
 const fixtureRoot = path.resolve(process.cwd(), "fixtures", "plans");
 
@@ -216,8 +217,14 @@ export async function createStudioRun(options: {
     matchedFixture = "binary-search";
   }
 
-  // If matched a fixture and no Gemini API key is configured, use fixture gracefully
-  if (matchedFixture && !config.geminiApiKey) {
+  const activeProvider = config.storyboardProvider || "gemini";
+  let hasActiveApiKey = Boolean(config.geminiApiKey);
+  if (activeProvider === "groq") hasActiveApiKey = Boolean(config.groqApiKey);
+  else if (activeProvider === "openrouter") hasActiveApiKey = Boolean(config.openRouterApiKey);
+  else if (activeProvider === "qwen") hasActiveApiKey = Boolean(config.dashscopeApiKey);
+
+  // If matched a fixture and no API key is configured, use fixture gracefully
+  if (matchedFixture && !hasActiveApiKey) {
     const fixtureResult = await createFixtureRun({
       name: matchedFixture,
       fixtureRoot: fRoot,
@@ -231,14 +238,14 @@ export async function createStudioRun(options: {
       planHash: fixtureResult.planHash,
       plan,
       manifest: fixtureResult.manifest,
-      warnings: ["Using verified educational benchmark fixture (GEMINI_API_KEY not configured)."],
+      warnings: [`Using verified educational benchmark fixture (${activeProvider.toUpperCase()}_API_KEY not configured).`],
     };
   }
 
-  // Otherwise, live generation via Gemini
-  if (!config.geminiApiKey) {
-    throw new Error(
-      "GEMINI_API_KEY environment variable is required to generate new custom topics with AI. Alternatively, select one of the built-in benchmark fixtures (Water Cycle, RAM vs Storage, Binary Search)."
+  // Otherwise, live generation via configured provider
+  if (!hasActiveApiKey) {
+    throw new RequestValidationError(
+      `${activeProvider.toUpperCase()}_API_KEY environment variable is required to generate new custom topics with AI. Alternatively, select one of the built-in benchmark fixtures (Water Cycle, RAM vs Storage, Binary Search).`
     );
   }
 

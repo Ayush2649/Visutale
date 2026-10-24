@@ -212,10 +212,30 @@ export function validatePlan(input: unknown): PlanValidationResult {
       issues.push({ path, message: "Expected a scene object." });
       return emptyScene();
     }
-    hasOnlyKeys(raw, ["id", "type", "purpose", "estimatedDurationMs", "narration", "objects", "events", "onScreenText", "sourceRefs"], path, issues);
+    hasOnlyKeys(raw, ["id", "type", "purpose", "estimatedDurationMs", "narration", "objects", "events", "onScreenText", "sourceRefs", "visualVariant", "visualData"], path, issues);
 
     if (!SCENE_TYPES.includes(raw.type as SceneType)) {
       issues.push({ path: `${path}.type`, message: `Unsupported scene type. Use: ${SCENE_TYPES.join(", ")}.` });
+    }
+
+    let visualVariant: string | undefined;
+    if (raw.visualVariant !== undefined) {
+      if (typeof raw.visualVariant !== "string" || raw.visualVariant.trim().length === 0) {
+        issues.push({ path: `${path}.visualVariant`, message: "Expected a non-empty string for visualVariant." });
+      } else if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(raw.visualVariant)) {
+        issues.push({ path: `${path}.visualVariant`, message: "visualVariant may contain letters, numbers, underscores, hyphens, and dots only." });
+      } else {
+        visualVariant = raw.visualVariant;
+      }
+    }
+
+    let visualData: Record<string, unknown> | undefined;
+    if (raw.visualData !== undefined) {
+      if (!isRecord(raw.visualData)) {
+        issues.push({ path: `${path}.visualData`, message: "Expected an object for visualData." });
+      } else {
+        visualData = raw.visualData;
+      }
     }
 
     const narration = readArray(raw.narration, `${path}.narration`, issues).map((blockRaw, blockIndex): NarrationBlock => {
@@ -284,7 +304,7 @@ export function validatePlan(input: unknown): PlanValidationResult {
       };
     });
 
-    return {
+    const scene: StoryboardScene = {
       id: readId(raw.id, `${path}.id`, issues),
       type: SCENE_TYPES.includes(raw.type as SceneType) ? raw.type as SceneType : "labeled-diagram",
       purpose: readString(raw.purpose, `${path}.purpose`, issues) ?? "",
@@ -295,6 +315,9 @@ export function validatePlan(input: unknown): PlanValidationResult {
       onScreenText: readStringArray(raw.onScreenText, `${path}.onScreenText`, issues),
       sourceRefs: readStringArray(raw.sourceRefs, `${path}.sourceRefs`, issues),
     };
+    if (visualVariant !== undefined) scene.visualVariant = visualVariant;
+    if (visualData !== undefined) scene.visualData = visualData;
+    return scene;
   });
 
   const warnings = readStringArray(input.warnings, "warnings", issues);

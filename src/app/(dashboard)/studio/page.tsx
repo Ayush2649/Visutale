@@ -175,7 +175,7 @@ function StudioPageContent() {
   // Create new run from topic or fixture
   const handleCreateDraft = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!topicInput.trim()) return;
+    if (!topicInput.trim() || loading) return;
 
     setLoading(true);
     setNotice(null);
@@ -195,7 +195,10 @@ function StudioPageContent() {
       }
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create draft");
+      if (!res.ok) {
+        const errorMsg = data?.error?.message || (typeof data?.error === "string" ? data.error : "Failed to create draft");
+        throw new Error(errorMsg);
+      }
 
       setActiveRunPath(data.runPath);
       setPlan(data.plan);
@@ -334,6 +337,54 @@ function StudioPageContent() {
       setNotice("Video generation dispatched. Progress tracked in real-time.");
     } catch (err: any) {
       setNotice(err.message || "Generation initiation failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Retry from preserved checkpoint
+  const handleRetry = async () => {
+    if (!activeRunId || loading || jobStatus?.status === "running") return;
+    setLoading(true);
+    setNotice(null);
+
+    try {
+      // If the run is in awaiting-approval and hasn't been approved yet, approve it
+      if (manifest?.state === "awaiting-approval" && planHash) {
+        const approveRes = await fetch(`/api/studio/runs/${activeRunId}/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planHash }),
+        });
+
+        if (approveRes.status === 401) {
+          window.location.href = `/sign-in?callbackUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+          return;
+        }
+
+        const approveData = await approveRes.json();
+        if (!approveRes.ok) throw new Error(approveData.error || "Approval failed");
+        setManifest(approveData.manifest);
+      }
+
+      // Dispatch render directly to resume from checkpoint without re-approving
+      const renderRes = await fetch(`/api/studio/runs/${activeRunId}/render`, {
+        method: "POST",
+      });
+
+      if (renderRes.status === 401) {
+        window.location.href = `/sign-in?callbackUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+        return;
+      }
+
+      const renderData = await renderRes.json();
+      if (!renderRes.ok) throw new Error(renderData.error || "Render dispatch failed");
+
+      setJobStatus(renderData.job);
+      setViewMode("progress");
+      setNotice("Video generation resumed from saved checkpoint.");
+    } catch (err: any) {
+      setNotice(err.message || "Retry initiation failed");
     } finally {
       setLoading(false);
     }
@@ -779,7 +830,8 @@ function StudioPageContent() {
                 <div className="flex items-center gap-space-sm self-start md:self-center">
                   <button
                     onClick={() => handleCreateDraft()}
-                    className="inline-flex items-center gap-1.5 px-space-md py-space-xs rounded bg-surface-container-lowest border border-outline-variant text-on-surface font-title-md text-body-sm hover:bg-surface-container transition-all active:translate-y-0.5 cursor-pointer"
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 px-space-md py-space-xs rounded bg-surface-container-lowest border border-outline-variant text-on-surface font-title-md text-body-sm hover:bg-surface-container transition-all active:translate-y-0.5 cursor-pointer disabled:opacity-50"
                     type="button"
                   >
                     <span className="material-symbols-outlined text-[16px]">refresh</span>
@@ -1717,12 +1769,13 @@ function StudioPageContent() {
                 </p>
                 <div className="flex flex-wrap items-center gap-space-md pt-space-sm">
                   <button
-                    onClick={handleApproveAndRender}
-                    className="flex items-center gap-space-xs px-space-lg py-space-md rounded bg-primary-container text-on-primary font-title-md text-title-md hover:bg-primary transition-all shadow-sm active:translate-y-0.5 cursor-pointer border-0"
+                    onClick={handleRetry}
+                    disabled={loading || jobStatus?.status === "running"}
+                    className="flex items-center gap-space-xs px-space-lg py-space-md rounded bg-primary-container text-on-primary font-title-md text-title-md hover:bg-primary transition-all shadow-sm active:translate-y-0.5 cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
                     type="button"
                   >
                     <span className="material-symbols-outlined text-[18px]">replay</span>
-                    <span>Retry generation</span>
+                    <span>{loading ? "Resuming..." : "Retry generation"}</span>
                   </button>
                   <button
                     onClick={() => setViewMode("manuscript")}
@@ -1747,19 +1800,29 @@ function StudioPageContent() {
                   <span className="font-label-code text-label-code uppercase tracking-widest text-outline font-medium">
                     Checkpoint Telemetry
                   </span>
-                  <span className="font-label-timestamp text-label-timestamp text-tertiary">ERR_FRAME_TIMEOUT</span>
+                  <span className="font-label-timestamp text-label-timestamp text-tertiary">
+                    {manifest?.error?.code || (jobStatus?.error?.toLowerCase().includes("timeout") ? "ERR_FRAME_TIMEOUT" : "CHECKPOINT_SAVED")}
+                  </span>
                 </div>
                 <div className="flex flex-col gap-space-xs">
                   <div className="flex justify-between items-baseline">
                     <span className="font-body-sm text-body-sm text-on-surface-variant">Asset Integrity</span>
-                    <span className="font-label-code text-label-code text-primary font-medium">100% Intact</span>
+                    <span className="font-label-code text-label-code text-primary font-medium">
+                      {jobStatus?.checkpoint?.hasAudio ? "100% Intact" : "Preserved"}
+                    </span>
                   </div>
                   <div className="w-full bg-surface-container-highest h-1 rounded overflow-hidden">
                     <div className="bg-primary-container h-full w-[86%] transition-all duration-500"></div>
                   </div>
                 </div>
                 <div className="font-label-code text-label-code text-on-surface-variant leading-relaxed">
-                  Stage checkpoint preserved: The script ({plan?.scenes.reduce((acc, s) => acc + s.narration.map((n) => n.text).join(" ").split(/\s+/).filter(Boolean).length, 0) || 158} words), 3 generated scene visuals, and Clara Neural narration (00:58) are safely saved in your workspace archive. Retrying will resume directly without regenerating your script or audio.
+                  {jobStatus?.checkpoint?.hasAudio ? (
+                    `Stage checkpoint preserved: The script (${jobStatus.checkpoint.wordCount} words), ${jobStatus.checkpoint.totalScenes} scene visuals, and verified voiceover (${jobStatus.checkpoint.voiceName || manifest?.provenance?.voiceName || "Neural Voice"}) are safely saved in your workspace archive. Retrying will resume directly without regenerating your script or audio.`
+                  ) : jobStatus?.checkpoint?.missingArtifacts && jobStatus.checkpoint.missingArtifacts.length > 0 ? (
+                    `Stage checkpoint: The script (${jobStatus.checkpoint.wordCount || plan?.scenes?.reduce((acc, s) => acc + s.narration.map((n) => n.text).join(" ").split(/\s+/).filter(Boolean).length, 0) || 0} words) and storyboard are preserved. Missing artifacts: ${jobStatus.checkpoint.missingArtifacts.join(", ")}. Retrying will resume from the last valid stage.`
+                  ) : (
+                    `Stage checkpoint preserved: The script (${plan?.scenes?.reduce((acc, s) => acc + s.narration.map((n) => n.text).join(" ").split(/\s+/).filter(Boolean).length, 0) || 0} words) and storyboard scenes are safely saved in your workspace archive. Retrying will resume directly.`
+                  )}
                 </div>
               </div>
             </div>

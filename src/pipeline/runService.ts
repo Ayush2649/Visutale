@@ -2,13 +2,14 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { validatePlan, type StoryboardPlan, type VoicePreset } from "../contracts/plan.js";
 import { isRunManifest, type RunManifest } from "../contracts/manifest.js";
-import type { SceneSpeechArtifact } from "../contracts/alignment.js";
+import type { SceneSpeechArtifact, ElevenLabsAlignment } from "../contracts/alignment.js";
 import type { AppConfig } from "../config/env.js";
 import { LocalArtifactStore } from "../storage/localArtifactStore.js";
 import { hashCanonicalJson } from "./canonicalHash.js";
 import { renderStoryboardReviewHtml } from "./storyboardHtml.js";
-import { generateStoryboardWithGemini } from "../providers/geminiPlanner.js";
+import { generateStoryboard } from "../providers/storyboardPlanner.js";
 import { synthesizeSpeechWithElevenLabs } from "../providers/elevenLabsSpeech.js";
+import { remapEventsForNarrationChange } from "../planning/storyboardNormalizer.js";
 
 export interface FixtureRunResult {
   runDir: string;
@@ -93,11 +94,23 @@ export async function createLivePlanRun(options: {
 }): Promise<LivePlanRunResult> {
   const { topic, notes, voicePreset = "indian-english-female", store, config, ownerId = "local" } = options;
 
-  if (!config.geminiApiKey) {
-    throw new Error("GEMINI_API_KEY environment variable is required for live planning.");
+  const provider = config.storyboardProvider || "gemini";
+  let apiKey = config.geminiApiKey;
+  let model = config.geminiModel;
+
+  if (provider === "groq") {
+    apiKey = config.groqApiKey;
+    model = config.groqModel;
+  } else if (provider === "openrouter") {
+    apiKey = config.openRouterApiKey;
+    model = config.openRouterModel;
+  } else if (provider === "qwen") {
+    apiKey = config.dashscopeApiKey;
+    model = config.dashscopeModel;
   }
-  if (!config.geminiModel) {
-    throw new Error("GEMINI_MODEL environment variable is required for live planning.");
+
+  if (!apiKey) {
+    throw new Error(`${provider.toUpperCase()}_API_KEY environment variable is required for live planning with provider '${provider}'.`);
   }
 
   const projectSlug = slugify(topic);
@@ -105,12 +118,13 @@ export async function createLivePlanRun(options: {
   const timestamp = now.toISOString().replace(/[-:.]/g, "").replace("T", "-").replace("Z", "Z");
   const runId = `${projectSlug}-${timestamp}`;
 
-  const plan = await generateStoryboardWithGemini({
+  const plan = await generateStoryboard({
+    provider,
     topic,
     notes,
     voicePreset,
-    apiKey: config.geminiApiKey,
-    model: config.geminiModel,
+    apiKey,
+    model,
     projectId: projectSlug,
     ownerId,
     versionId: runId,
@@ -255,25 +269,58 @@ export async function synthesizeSpeechForRun(options: {
     const audioFilename = path.join("audio", `${scene.id}.mp3`);
     const alignmentFilename = path.join("alignment", `${scene.id}.json`);
 
-    const result = await synthesizeSpeechWithElevenLabs({
-      text: narrationText,
-      voiceId,
-      modelId: config.elevenLabsModel,
-      apiKey: config.elevenLabsApiKey,
-    });
+    let audioBuffer: Buffer | null = null;
+    let alignment: ElevenLabsAlignment | null = null;
+    let durationMs = 0;
 
-    await writeFile(path.join(runDir, audioFilename), result.audioBuffer);
-    await store.writeJson(runDir, alignmentFilename, result.alignment);
+    const audioExists = await store.exists(runDir, audioFilename);
+    const alignExists = await store.exists(runDir, alignmentFilename);
+
+    if (audioExists && alignExists) {
+      try {
+        const existingBuf = await readFile(path.join(runDir, audioFilename));
+        const existingAlign = await store.readJson<ElevenLabsAlignment>(runDir, alignmentFilename);
+        if (
+          existingBuf.length > 0 &&
+          Array.isArray(existingAlign?.characters) &&
+          Array.isArray(existingAlign?.character_end_times_seconds) &&
+          existingAlign.character_end_times_seconds.length > 0
+        ) {
+          audioBuffer = existingBuf;
+          alignment = existingAlign;
+          const maxEndSeconds = Math.max(...existingAlign.character_end_times_seconds);
+          durationMs = Math.round(maxEndSeconds * 1000);
+        }
+      } catch {
+        // Fall back to synthesis if file read or parse fails
+      }
+    }
+
+    if (!audioBuffer || !alignment) {
+      const result = await synthesizeSpeechWithElevenLabs({
+        text: narrationText,
+        voiceId,
+        modelId: config.elevenLabsModel,
+        apiKey: config.elevenLabsApiKey,
+      });
+
+      audioBuffer = result.audioBuffer;
+      alignment = result.alignment;
+      durationMs = result.durationMs;
+
+      await writeFile(path.join(runDir, audioFilename), audioBuffer);
+      await store.writeJson(runDir, alignmentFilename, alignment);
+    }
 
     speechArtifacts.push({
       sceneId: scene.id,
       voiceId,
       modelId: config.elevenLabsModel,
       audioFilename,
-      audioBase64: result.audioBase64,
+      audioBase64: audioBuffer.toString("base64"),
       alignmentFilename,
-      durationMs: result.durationMs,
-      alignment: result.alignment,
+      durationMs,
+      alignment,
       createdAt: now.toISOString(),
     });
   }
@@ -363,8 +410,36 @@ export async function createRevisionRun(options: {
   const parentManifest = await readManifest(store, parentRunDir);
   const parentPlan = await store.readJson<StoryboardPlan>(parentRunDir, "plan.json");
 
+  // Remap event cues if narration was edited in modifiedPlan
+  const candidatePlanToValidate: StoryboardPlan = {
+    ...modifiedPlan,
+    scenes: Array.isArray(modifiedPlan.scenes) && Array.isArray(parentPlan.scenes)
+      ? modifiedPlan.scenes.map((scene) => {
+          const parentScene = parentPlan.scenes.find((s) => s.id === scene.id);
+          if (!parentScene || !Array.isArray(scene.events) || !Array.isArray(scene.narration)) {
+            return scene;
+          }
+
+          let updatedEvents = [...scene.events];
+          const parentNarrationMap = new Map(parentScene.narration.map((b) => [b.id, b.text]));
+
+          for (const block of scene.narration) {
+            const oldText = parentNarrationMap.get(block.id);
+            if (oldText && oldText !== block.text) {
+              updatedEvents = remapEventsForNarrationChange(updatedEvents, oldText, block.text, block.id);
+            }
+          }
+
+          return {
+            ...scene,
+            events: updatedEvents,
+          };
+        })
+      : modifiedPlan.scenes,
+  };
+
   // Validate modified plan
-  const planValidation = validatePlan(modifiedPlan);
+  const planValidation = validatePlan(candidatePlanToValidate);
   if (!planValidation.success) {
     throw new Error(`Modified plan failed validation:\n${formatIssues(planValidation.issues)}`);
   }

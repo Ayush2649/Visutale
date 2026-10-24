@@ -20,7 +20,21 @@ export function resolveTopicDomain(topic?: string): VisualDomain {
   if (!topic) return "generic";
   const norm = topic.toLowerCase();
 
-  if (norm.includes("photo") || norm.includes("botany") || (norm.includes("plant") && !norm.includes("water"))) {
+  if (
+    norm.includes("solar") ||
+    norm.includes("photovoltaic") ||
+    (norm.includes("sunlight") &&
+      (norm.includes("electricity") || norm.includes("power") || norm.includes("energy") || norm.includes("cell") || norm.includes("panel"))) ||
+    (norm.includes("panel") && (norm.includes("sun") || norm.includes("electric")))
+  ) {
+    return "solar";
+  }
+  if (
+    norm.includes("photosynthe") ||
+    norm.includes("botany") ||
+    (norm.includes("plant") && !norm.includes("water")) ||
+    (norm.includes("photo") && !norm.includes("photovoltaic") && !norm.includes("photon"))
+  ) {
     return "photosynthesis";
   }
   if (norm.includes("water cycle") || (norm.includes("water") && !norm.includes("plant"))) {
@@ -43,6 +57,32 @@ export function resolveTopicDomain(topic?: string): VisualDomain {
   ) {
     return "algorithms";
   }
+  if (
+    norm.includes("sunset") ||
+    norm.includes("sky turn") ||
+    norm.includes("sky color") ||
+    norm.includes("rayleigh") ||
+    norm.includes("scatter") ||
+    (norm.includes("optics") && !norm.includes("fiber")) ||
+    norm.includes("prism") ||
+    (norm.includes("light") && (norm.includes("wavelength") || norm.includes("spectrum") || norm.includes("color")))
+  ) {
+    return "optics";
+  }
+  if (
+    norm.includes("phone") ||
+    norm.includes("call") ||
+    norm.includes("cellular") ||
+    norm.includes("telecom") ||
+    norm.includes("microphone") ||
+    norm.includes("fiber optic") ||
+    norm.includes("cell tower") ||
+    norm.includes("mobile") ||
+    (norm.includes("talk") && norm.includes("away")) ||
+    (norm.includes("voice") && (norm.includes("travel") || norm.includes("reach") || norm.includes("distance") || norm.includes("wire")))
+  ) {
+    return "telecom";
+  }
 
   return "generic";
 }
@@ -58,8 +98,8 @@ export function validateVisualSelection(
 
   const expectedDomain = resolveTopicDomain(topic);
 
-  // Generic variants are universal and always allowed across any topic
-  if (entry.domain === "generic") {
+  // Generic and Template variants are universal and always allowed across any topic
+  if (entry.domain === "generic" || entry.domain === "template") {
     return { isValid: true, domain: entry.domain };
   }
 

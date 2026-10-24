@@ -1,6 +1,15 @@
+export type StoryboardProviderName = "gemini" | "groq" | "openrouter" | "qwen";
+
 export interface AppConfig {
+  storyboardProvider: StoryboardProviderName;
   geminiApiKey?: string;
   geminiModel?: string;
+  groqApiKey?: string;
+  groqModel?: string;
+  openRouterApiKey?: string;
+  openRouterModel?: string;
+  dashscopeApiKey?: string;
+  dashscopeModel?: string;
   elevenLabsApiKey?: string;
   elevenLabsModel?: string;
   elevenLabsMaleVoiceId?: string;
@@ -14,9 +23,22 @@ export interface LiveConfigCheck {
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+  const rawProvider = env.STORYBOARD_PROVIDER?.trim().toLowerCase();
+  const storyboardProvider: StoryboardProviderName =
+    rawProvider === "groq" || rawProvider === "openrouter" || rawProvider === "qwen"
+      ? rawProvider
+      : "gemini";
+
   return {
+    storyboardProvider,
     geminiApiKey: nonEmpty(env.GEMINI_API_KEY),
     geminiModel: nonEmpty(env.GEMINI_MODEL),
+    groqApiKey: nonEmpty(env.GROQ_API_KEY),
+    groqModel: nonEmpty(env.GROQ_MODEL),
+    openRouterApiKey: nonEmpty(env.OPENROUTER_API_KEY),
+    openRouterModel: nonEmpty(env.OPENROUTER_MODEL),
+    dashscopeApiKey: nonEmpty(env.DASHSCOPE_API_KEY),
+    dashscopeModel: nonEmpty(env.DASHSCOPE_MODEL),
     elevenLabsApiKey: nonEmpty(env.ELEVENLABS_API_KEY),
     elevenLabsModel: nonEmpty(env.ELEVENLABS_MODEL),
     elevenLabsMaleVoiceId: nonEmpty(env.ELEVENLABS_VOICE_ID_INDIAN_MALE),

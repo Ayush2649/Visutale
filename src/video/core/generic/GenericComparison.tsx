@@ -1,9 +1,12 @@
 import React from "react";
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { THEME } from "../theme.js";
-import { SceneContainer } from "../SceneContainer.js";
-import { VisualStageCard, AnimatedBadge } from "../primitives/CommonPrimitives.js";
 import type { SceneProps } from "../contracts/visualTypes.js";
+import { SceneContainer } from "../SceneContainer.js";
+import {
+  CinematicEnvironment,
+  HUDHeaderPill,
+  SafeCalloutCard,
+} from "../primitives/index.js";
 
 export interface ComparisonProperty {
   label: string;
@@ -58,19 +61,28 @@ export const GenericComparison: React.FC<SceneProps> = ({
   const titleB = candB?.label ?? scene.onScreenText[1] ?? "Concept B";
 
   const remainingObjects = scene.objects.slice(2);
-  const half = Math.ceil(remainingObjects.length / 2);
-  const propsA: ComparisonProperty[] =
-    remainingObjects.slice(0, half).map((o) => ({ label: o.kind, value: o.label }));
-  const propsB: ComparisonProperty[] =
-    remainingObjects.slice(half).map((o) => ({ label: o.kind, value: o.label }));
+  const propsA: ComparisonProperty[] = [];
+  const propsB: ComparisonProperty[] = [];
+
+  remainingObjects.forEach((obj, idx) => {
+    const prop: ComparisonProperty = {
+      label: obj.kind === "text" || obj.kind === "label" ? "Feature" : obj.kind,
+      value: obj.label,
+    };
+    if (idx % 2 === 0) {
+      propsA.push(prop);
+    } else {
+      propsB.push(prop);
+    }
+  });
 
   const conceptA: ComparisonConceptData = {
     title: titleA,
     badge: candA?.kind ?? "Concept A",
     icon: "🔹",
-    color: THEME.colors.waterBlueDeep,
-    bgColor: "#F0F7FF",
-    borderColor: "#BFDBFE",
+    color: "#38BDF8",
+    bgColor: "rgba(56, 189, 248, 0.12)",
+    borderColor: "rgba(56, 189, 248, 0.4)",
     properties:
       propsA.length > 0 ? propsA : [{ label: "Characteristic", value: `Key attributes of ${titleA}` }],
   };
@@ -79,9 +91,9 @@ export const GenericComparison: React.FC<SceneProps> = ({
     title: titleB,
     badge: candB?.kind ?? "Concept B",
     icon: "🔸",
-    color: "#581C87",
-    bgColor: "#FAF5FF",
-    borderColor: "#E9D5FF",
+    color: "#F59E0B",
+    bgColor: "rgba(245, 158, 11, 0.12)",
+    borderColor: "rgba(245, 158, 11, 0.4)",
     properties:
       propsB.length > 0 ? propsB : [{ label: "Characteristic", value: `Key attributes of ${titleB}` }],
   };
@@ -104,119 +116,88 @@ export const GenericComparison: React.FC<SceneProps> = ({
       topic={topic}
       sceneIndex={sceneIndex}
       totalScenes={totalScenes}
-      stepTitle={title}
       progress={globalProgress}
+      layoutMode="cinematic"
     >
-      <VisualStageCard width={936} height={1040}>
-        {/* Header */}
-        <div style={{ padding: "32px 40px 16px 40px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ maxWidth: 680 }}>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 36,
-                  fontWeight: 800,
-                  color: THEME.colors.textPrimary,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {title}
-              </h2>
-              <p style={{ margin: "8px 0 0 0", fontSize: 22, color: THEME.colors.textMuted, fontWeight: 500 }}>
-                {subtitle}
-              </p>
-            </div>
-            <AnimatedBadge
-              label="Comparison"
-              frame={frame}
-              revealFrame={5}
-              color={THEME.colors.waterBlueDark}
-              bgColor={THEME.colors.waterBlueLight}
-            />
-          </div>
-        </div>
+      <CinematicEnvironment theme="tech-dark" showGrid>
+        <HUDHeaderPill
+          icon="⚖️"
+          category="HEAD-TO-HEAD COMPARISON"
+          color="#818CF8"
+          borderColor="rgba(129, 140, 248, 0.4)"
+        />
 
-        {/* Dual Cards Comparison Stage */}
+        {/* Dual Pillars Comparison Stage */}
         <div
           style={{
-            flex: 1,
-            padding: "16px 36px 32px 36px",
+            position: "absolute",
+            top: 250,
+            left: 72,
+            right: 72,
+            height: 1140,
             display: "flex",
-            gap: 20,
-            alignItems: "stretch",
+            gap: 24,
+            alignItems: "center",
           }}
         >
-          {/* Concept A Card */}
+          {/* Concept A Pillar */}
           <div
             style={{
               flex: 1,
+              height: 680,
               opacity: interpolate(sprA, [0, 1], [0, 1]),
               transform: `scale(${interpolate(sprA, [0, 1], [0.93, 1])})`,
-              backgroundColor: conceptA.bgColor,
+              background: "rgba(15, 23, 42, 0.85)",
               border: `2px solid ${conceptA.borderColor}`,
-              borderRadius: 24,
-              padding: "24px 20px",
+              borderRadius: 26,
+              padding: "32px 26px",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
-              boxShadow: "0 8px 24px rgba(15,23,42,0.04)",
+              boxShadow: `0 14px 35px rgba(0,0,0,0.4), 0 0 20px ${conceptA.color}22`,
+              backdropFilter: "blur(14px)",
             }}
           >
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 36 }}>{conceptA.icon}</span>
+                <span style={{ fontSize: 40 }}>{conceptA.icon}</span>
                 {conceptA.badge && (
                   <span
                     style={{
                       fontSize: 13,
                       fontWeight: 800,
-                      backgroundColor: "#FFFFFF",
-                      padding: "4px 12px",
-                      borderRadius: 12,
+                      backgroundColor: "rgba(56, 189, 248, 0.2)",
+                      padding: "6px 14px",
+                      borderRadius: 14,
                       color: conceptA.color,
                       border: `1px solid ${conceptA.borderColor}`,
+                      textTransform: "uppercase",
                     }}
                   >
                     {conceptA.badge}
                   </span>
                 )}
               </div>
-              <h3
-                style={{
-                  margin: "16px 0 0 0",
-                  fontSize: 26,
-                  fontWeight: 800,
-                  color: conceptA.color,
-                  lineHeight: 1.2,
-                }}
-              >
+              <h3 style={{ margin: "20px 0 0 0", fontSize: 28, fontWeight: 900, color: "#FFFFFF", lineHeight: 1.2 }}>
                 {conceptA.title}
               </h3>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {conceptA.properties.map((prop, idx) => (
                 <div
                   key={`propA-${idx}`}
                   style={{
-                    backgroundColor: "#FFFFFF",
-                    padding: "12px 14px",
-                    borderRadius: 12,
-                    border: `1px solid ${conceptA.borderColor}`,
+                    background: "rgba(255, 255, 255, 0.05)",
+                    padding: "14px 16px",
+                    borderRadius: 16,
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
                   }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: THEME.colors.textMuted }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#94A3B8" }}>
                     {prop.label}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 16,
-                      fontWeight: 800,
-                      color: THEME.colors.textPrimary,
-                      marginTop: 2,
-                    }}
-                  >
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#F8FAFC", marginTop: 4 }}>
                     {prop.value}
                   </div>
                 </div>
@@ -224,76 +205,64 @@ export const GenericComparison: React.FC<SceneProps> = ({
             </div>
           </div>
 
-          {/* Concept B Card */}
+          {/* Concept B Pillar */}
           <div
             style={{
               flex: 1,
+              height: 680,
               opacity: interpolate(sprB, [0, 1], [0, 1]),
               transform: `scale(${interpolate(sprB, [0, 1], [0.93, 1])})`,
-              backgroundColor: conceptB.bgColor,
+              background: "rgba(15, 23, 42, 0.85)",
               border: `2px solid ${conceptB.borderColor}`,
-              borderRadius: 24,
-              padding: "24px 20px",
+              borderRadius: 26,
+              padding: "32px 26px",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
-              boxShadow: "0 8px 24px rgba(15,23,42,0.04)",
+              boxShadow: `0 14px 35px rgba(0,0,0,0.4), 0 0 20px ${conceptB.color}22`,
+              backdropFilter: "blur(14px)",
             }}
           >
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 36 }}>{conceptB.icon}</span>
+                <span style={{ fontSize: 40 }}>{conceptB.icon}</span>
                 {conceptB.badge && (
                   <span
                     style={{
                       fontSize: 13,
                       fontWeight: 800,
-                      backgroundColor: "#FFFFFF",
-                      padding: "4px 12px",
-                      borderRadius: 12,
+                      backgroundColor: "rgba(245, 158, 11, 0.2)",
+                      padding: "6px 14px",
+                      borderRadius: 14,
                       color: conceptB.color,
                       border: `1px solid ${conceptB.borderColor}`,
+                      textTransform: "uppercase",
                     }}
                   >
                     {conceptB.badge}
                   </span>
                 )}
               </div>
-              <h3
-                style={{
-                  margin: "16px 0 0 0",
-                  fontSize: 26,
-                  fontWeight: 800,
-                  color: conceptB.color,
-                  lineHeight: 1.2,
-                }}
-              >
+              <h3 style={{ margin: "20px 0 0 0", fontSize: 28, fontWeight: 900, color: "#FFFFFF", lineHeight: 1.2 }}>
                 {conceptB.title}
               </h3>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {conceptB.properties.map((prop, idx) => (
                 <div
                   key={`propB-${idx}`}
                   style={{
-                    backgroundColor: "#FFFFFF",
-                    padding: "12px 14px",
-                    borderRadius: 12,
-                    border: `1px solid ${conceptB.borderColor}`,
+                    background: "rgba(255, 255, 255, 0.05)",
+                    padding: "14px 16px",
+                    borderRadius: 16,
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
                   }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: THEME.colors.textMuted }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#94A3B8" }}>
                     {prop.label}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 16,
-                      fontWeight: 800,
-                      color: THEME.colors.textPrimary,
-                      marginTop: 2,
-                    }}
-                  >
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#F8FAFC", marginTop: 4 }}>
                     {prop.value}
                   </div>
                 </div>
@@ -301,8 +270,15 @@ export const GenericComparison: React.FC<SceneProps> = ({
             </div>
           </div>
         </div>
-      </VisualStageCard>
+
+        {/* Safe Callout Card */}
+        <SafeCalloutCard
+          icon="⚖️"
+          title={title}
+          description={subtitle}
+          accentColor="#818CF8"
+        />
+      </CinematicEnvironment>
     </SceneContainer>
   );
 };
-

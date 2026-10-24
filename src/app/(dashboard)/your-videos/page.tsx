@@ -11,10 +11,45 @@ type UserView = {
   email: string;
 };
 
+export interface VideoItem {
+  id: string;
+  category: string;
+  title: string;
+  specs: string;
+  duration: string;
+  updated: string;
+  image: string;
+  runPath?: string;
+  hasOutputVideo: boolean;
+  videoSizeBytes?: number;
+  state?: string;
+  isSample?: boolean;
+}
+
+function formatRelativeTime(dateStr: string): string {
+  try {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return "Just now";
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  } catch {
+    return "Recently";
+  }
+}
+
 export default function YourVideosPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserView | null>(null);
-  const [viewMode, setViewMode] = useState<"grid" | "empty">("grid");
+  const [userVideos, setUserVideos] = useState<VideoItem[]>([]);
+  const [hasLoadedRuns, setHasLoadedRuns] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "samples" | "empty">("grid");
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState("Newest first");
@@ -23,23 +58,72 @@ export default function YourVideosPage() {
   const [activeCardMenuId, setActiveCardMenuId] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [previewingVideo, setPreviewingVideo] = useState<VideoItem | null>(null);
 
   useEffect(() => {
     let isMounted = true;
-    async function fetchSession() {
+    async function fetchStudioData() {
       try {
-        const res = await fetch("/api/session");
+        const res = await fetch("/api/studio/runs");
+        if (res.status === 401) {
+          window.location.href = "/sign-in?callbackUrl=/your-videos";
+          return;
+        }
         if (res.ok && isMounted) {
           const json = await res.json();
-          if (json?.data?.user) {
-            setCurrentUser(json.data.user);
+          if (json?.user) {
+            setCurrentUser(json.user);
+          }
+          if (json?.runs && Array.isArray(json.runs)) {
+            const mapped: VideoItem[] = json.runs.map((r: any, idx: number) => {
+              const topicLower = (r.topic || "").toLowerCase();
+              let cat = "Educational Manuscript";
+              if (topicLower.includes("water") || topicLower.includes("earth") || topicLower.includes("climate")) {
+                cat = "Earth Science";
+              } else if (topicLower.includes("ram") || topicLower.includes("binary") || topicLower.includes("network") || topicLower.includes("computer")) {
+                cat = "Computer Science";
+              } else if (topicLower.includes("physics") || topicLower.includes("sky") || topicLower.includes("light")) {
+                cat = "Atmospheric Physics";
+              } else if (topicLower.includes("math") || topicLower.includes("fractal")) {
+                cat = "Mathematics";
+              }
+
+              const sizeMB = r.videoSizeBytes ? (r.videoSizeBytes / (1024 * 1024)).toFixed(1) : undefined;
+              const specs = sizeMB ? `${sizeMB} MB • 1080p` : "1080p • 30fps";
+
+              return {
+                id: r.runId,
+                category: cat,
+                title: r.topic || "Untitled Video",
+                specs,
+                duration: "1:00",
+                updated: formatRelativeTime(r.updatedAt || r.createdAt),
+                image: r.hasOutputVideo
+                  ? `/api/studio/runs/${r.runId}/previews/frame-00001.png`
+                  : sampleVideos[idx % sampleVideos.length].image,
+                runPath: r.runPath,
+                hasOutputVideo: Boolean(r.hasOutputVideo),
+                videoSizeBytes: r.videoSizeBytes,
+                state: r.state,
+                isSample: false,
+              };
+            });
+            setUserVideos(mapped);
+            // Default to empty state if user has no runs yet
+            if (mapped.length === 0) {
+              setViewMode("empty");
+            } else {
+              setViewMode("grid");
+            }
           }
         }
       } catch (err) {
-        console.error("Failed to load user session in your-videos:", err);
+        console.error("Failed to load user runs in your-videos:", err);
+      } finally {
+        if (isMounted) setHasLoadedRuns(true);
       }
     }
-    fetchSession();
+    fetchStudioData();
     return () => {
       isMounted = false;
     };
@@ -57,7 +141,7 @@ export default function YourVideosPage() {
     }
   };
 
-  const sampleVideos = [
+  const sampleVideos: VideoItem[] = [
     {
       id: "vid_01",
       category: "Atmospheric Physics",
@@ -67,6 +151,8 @@ export default function YourVideosPage() {
       updated: "Updated 2 hours ago",
       image:
         "https://lh3.googleusercontent.com/aida-public/AB6AXuAVt-ZNYnPBD6xQNwYmCEOLY0h2nLFAUA5oR9VWPNozP7Cby9nnsoCzHbGdZCiSHJdm4fVDaMEKuQbi3CSccI_9pCJM0XnnFYO0E-0IoSIgz0_2-AxoVhNh-isqnhO9EWeBcOgQ3f960pROhvG3_kasiBpGyY96zQ4i1Ze8TO3F1ZR0f2I-FogjKhdKZNkprMigVApjjhMGRhqoeIg_UNvkG0BjV-yzZCsUbYPVkkaDoaFLWDDroux5",
+      hasOutputVideo: false,
+      isSample: true,
     },
     {
       id: "vid_02",
@@ -77,6 +163,8 @@ export default function YourVideosPage() {
       updated: "Updated Yesterday",
       image:
         "https://lh3.googleusercontent.com/aida-public/AB6AXuCq-eGodPTPBfcqvUqOMQibzvpjZsd6ii1bnG_ResvpwCsTYHduDXgsPEFi50S63NwBx8IjImJSDzxW_ftVETe14uxhT-z-1sKisjlGqRSvAKM0_tkdT3zcxz4Snuh58ltuO0i4Q4t-4wZyuAd7V4CZZT9IW-v0elSp7-XehgI0lNKdMy28lS2vlODD5FuAl4w28j_tKh94W_ejkAuHMkWwpO787yQ9yv_auDKgVZ6evYHTCY6ip6UU",
+      hasOutputVideo: false,
+      isSample: true,
     },
     {
       id: "vid_03",
@@ -87,6 +175,8 @@ export default function YourVideosPage() {
       updated: "Oct 24, 2025",
       image:
         "https://lh3.googleusercontent.com/aida-public/AB6AXuCLT7S4-BeY9CD56zqkVPYcrQxArZ8gRRs72J0QsdDzrI0K5ERztqrlmdSs5BANP3XFJ9lUHpIEuk1KFe7xJ9Xexb17SENnM0pkCOFe_-eJMXaYIcAAeR0qf2DbTcIbfFsOznNt3ILPk5SQ0V_1hIKO37CFt_0jEw3FSvHdtLAz2U5A1HmoNKjFyT9YUVXrKAKWov3Bc9824epnrg3HBhd3ODpMtWoLzU4r5YVBEpc1lPPrbsPKi2tB",
+      hasOutputVideo: false,
+      isSample: true,
     },
     {
       id: "vid_04",
@@ -97,6 +187,8 @@ export default function YourVideosPage() {
       updated: "Oct 19, 2025",
       image:
         "https://lh3.googleusercontent.com/aida-public/AB6AXuD6maoN54GYgHMQG6pbzuvI0izRgBq2YCtvp2aHdshSVrcz2lxSnKG5F7H9RniEWlFqQqcncZlrq4IN9cNuT0BlR6A5bzz6kWu9_mom758DuokH4Pslo3Rjuu_BYQGmPK3D4uLDGOCHWwIEi4GRuuXLmQjLCWC-kBv3ftT720sMpvFJB8lzQ3q0SQU-UZOqca1JJxw2mCshPENOLRpeqawgKN6mYDBeyUtK_bOE3A_PDGFgz6BVIseo",
+      hasOutputVideo: false,
+      isSample: true,
     },
     {
       id: "vid_05",
@@ -107,6 +199,8 @@ export default function YourVideosPage() {
       updated: "Oct 12, 2025",
       image:
         "https://lh3.googleusercontent.com/aida-public/AB6AXuDZddxAPd1PhSt2YxU_fSXLQDSOBSSrL8AmmeUThyyAoaocF8GVfNR49gKqeqKDkxWJ3S247A-AE-osRdoy8DzaC9TuMvOgUSSPSRs9twPnKJy3yAU8_tpnb9EwHDiyEijJ4fb9NGCyj4u3hiYreH5XhLDdSME6bgjlKL3gNWbgPI1-PTGQ1vqaN3AxzN59kSUWMxZPVusRPBFkBHYwR1J4sO-z3iiyEFP2iL6Zg0Jsa2bl1N4OQGPA",
+      hasOutputVideo: false,
+      isSample: true,
     },
     {
       id: "vid_06",
@@ -117,6 +211,8 @@ export default function YourVideosPage() {
       updated: "Sep 28, 2025",
       image:
         "https://lh3.googleusercontent.com/aida-public/AB6AXuDEZoiWuntIGTxl6k5iUPkaQkAaGpLJ7qt4q-qxb6QkIvYGIyNl4NXewmYVLhTUVQ3Lb9LzpJTTg9nI02IFlAnKUzelf34Q7CdEpsl-5Xe407yrFNATK2QMzgVDMovGPOM17UjVhGx-TQNN0KWkzIiRkJrRbrMdGEBXUJ5_PLlZvOdpEjWH25otNpE3mtqt4srMEXitDOjSpSagfYUyH1AzlCHNH-Erin_dEsEYXiNzAeZFsmQqP2ou",
+      hasOutputVideo: false,
+      isSample: true,
     },
   ];
 
@@ -130,7 +226,9 @@ export default function YourVideosPage() {
     "History",
   ];
 
-  const filteredVideos = sampleVideos.filter((v) => {
+  const currentSource = viewMode === "samples" ? sampleVideos : userVideos;
+
+  const filteredVideos = currentSource.filter((v) => {
     const matchesCat =
       activeCategory === "all" ||
       v.category.toLowerCase().includes(activeCategory.toLowerCase());
@@ -254,7 +352,9 @@ export default function YourVideosPage() {
                   </span>
                   <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
                   <span className="font-label-code text-label-code text-on-surface-variant">
-                    {viewMode === "empty" ? "00 Manifests Synthesized" : "06 Manifests Synthesized"}
+                    {viewMode === "empty" || (!userVideos.length && viewMode !== "samples")
+                      ? "00 Manifests Synthesized"
+                      : `${(viewMode === "samples" ? sampleVideos.length : userVideos.length).toString().padStart(2, "0")} Manifests Synthesized`}
                   </span>
                 </div>
                 <h1 className="font-headline-lg text-headline-lg text-on-surface font-normal tracking-tight">
@@ -393,9 +493,24 @@ export default function YourVideosPage() {
                     type="button"
                   >
                     <span className="material-symbols-outlined text-[15px]">grid_view</span>
-                    <span className="hidden sm:inline">All videos</span>
+                    <span className="hidden sm:inline">Your videos</span>
                     <span className="font-label-code text-label-code text-secondary ml-0.5">
-                      ({filteredVideos.length})
+                      ({userVideos.length})
+                    </span>
+                  </button>
+                  <button
+                    className={`px-space-sm py-1 rounded font-body-sm text-body-sm font-medium transition-all flex items-center gap-1 cursor-pointer ${
+                      viewMode === "samples"
+                        ? "bg-surface-container-lowest text-on-surface shadow-xs"
+                        : "text-secondary hover:text-on-surface"
+                    }`}
+                    onClick={() => setViewMode("samples")}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">auto_stories</span>
+                    <span className="hidden sm:inline">Samples</span>
+                    <span className="font-label-code text-label-code text-secondary ml-0.5">
+                      ({sampleVideos.length})
                     </span>
                   </button>
                   <button
@@ -415,7 +530,7 @@ export default function YourVideosPage() {
             </div>
 
             {/* Primary Video Grid View */}
-            {viewMode === "grid" && filteredVideos.length > 0 && (
+            {(viewMode === "grid" || viewMode === "samples") && filteredVideos.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-gutter-lg">
                 {filteredVideos.map((video) => (
                   <article
@@ -428,6 +543,9 @@ export default function YourVideosPage() {
                         alt={video.title}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         src={video.image}
+                        onError={(e) => {
+                          e.currentTarget.src = "/assets/stitch/studio_finished_video.jpg";
+                        }}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none"></div>
                       <div className="absolute top-space-sm left-space-sm right-space-sm flex items-center justify-between">
@@ -441,7 +559,16 @@ export default function YourVideosPage() {
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/35 backdrop-blur-[2px]">
                         <button
                           aria-label="Play video preview"
-                          className="w-12 h-12 rounded-full bg-white text-primary flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
+                          onClick={() => {
+                            if (video.hasOutputVideo) {
+                              setPreviewingVideo(video);
+                            } else if (video.isSample) {
+                              setActionNotice(`Sample benchmark for "${video.title}". Open in Studio to view or render.`);
+                            } else {
+                              setActionNotice(`Video "${video.title}" is in state '${video.state || "draft"}'. Click 'Open in Studio' to approve and render.`);
+                            }
+                          }}
+                          className="w-12 h-12 rounded-full bg-white text-primary flex items-center justify-center shadow-lg hover:scale-105 transition-transform cursor-pointer border-0"
                           type="button"
                         >
                           <span
@@ -454,29 +581,42 @@ export default function YourVideosPage() {
                       </div>
                       <div className="absolute bottom-space-sm left-space-sm right-space-sm flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                         <Link
-                          href="/studio"
+                          href={video.isSample ? "/studio" : `/studio?runPath=${encodeURIComponent(video.runPath || video.id)}`}
                           className="px-2.5 py-1 rounded bg-white/90 hover:bg-white text-on-surface font-body-sm text-body-sm flex items-center gap-1 shadow-sm transition-colors"
                         >
                           <span className="material-symbols-outlined text-[15px]">movie</span>
                           <span>Open in Studio</span>
                         </Link>
                         <div className="flex items-center gap-1">
-                          <button
-                            aria-label="Download MP4"
-                            className="w-7 h-7 rounded bg-white/90 hover:bg-white text-on-surface flex items-center justify-center shadow-sm transition-colors cursor-pointer"
-                            title="Download MP4"
-                            type="button"
-                          >
-                            <span className="material-symbols-outlined text-[15px]">download</span>
-                          </button>
-                          <button
+                          {video.hasOutputVideo ? (
+                            <a
+                              href={`/api/studio/runs/${video.id}/download`}
+                              download
+                              aria-label="Download MP4"
+                              className="w-7 h-7 rounded bg-white/90 hover:bg-white text-on-surface flex items-center justify-center shadow-sm transition-colors cursor-pointer"
+                              title="Download MP4"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">download</span>
+                            </a>
+                          ) : (
+                            <button
+                              aria-label="Download MP4"
+                              onClick={() => setActionNotice(`Video render has not been completed for "${video.title}".`)}
+                              className="w-7 h-7 rounded bg-white/90 hover:bg-white text-on-surface flex items-center justify-center shadow-sm transition-colors cursor-pointer border-0"
+                              title="Download MP4"
+                              type="button"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">download</span>
+                            </button>
+                          )}
+                          <Link
+                            href={`/studio?topic=${encodeURIComponent(video.title)}`}
                             aria-label="Duplicate Script"
-                            className="w-7 h-7 rounded bg-white/90 hover:bg-white text-on-surface flex items-center justify-center shadow-sm transition-colors cursor-pointer"
+                            className="w-7 h-7 rounded bg-white/90 hover:bg-white text-on-surface flex items-center justify-center shadow-sm transition-colors"
                             title="Duplicate Script"
-                            type="button"
                           >
                             <span className="material-symbols-outlined text-[15px]">content_copy</span>
-                          </button>
+                          </Link>
                         </div>
                       </div>
                     </div>
@@ -498,8 +638,8 @@ export default function YourVideosPage() {
                       </div>
                       <div className="pt-space-xs flex items-center justify-between text-secondary">
                         <div className="flex items-center gap-1.5 font-label-code text-label-code">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
-                          <span>{video.updated}</span>
+                          <span className={`w-1.5 h-1.5 rounded-full ${video.hasOutputVideo ? "bg-primary-container" : "bg-outline"}`}></span>
+                          <span>{video.hasOutputVideo ? "Master Verified" : video.updated}</span>
                         </div>
                         <div className="relative">
                           <button
@@ -514,50 +654,33 @@ export default function YourVideosPage() {
                           </button>
                           {activeCardMenuId === video.id && (
                             <div className="absolute right-0 bottom-full mb-1 w-44 bg-surface-container-lowest rounded-lg shadow-xl py-1 z-30 border border-outline-variant/40">
-                              <button
-                                className="w-full text-left px-3 py-1.5 text-body-sm font-body-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 cursor-pointer bg-transparent border-0"
-                                onClick={() => {
-                                  setActionNotice(`Renaming for "${video.title}" will open in Studio Manuscript.`);
-                                  setActiveCardMenuId(null);
-                                }}
-                                type="button"
+                              <Link
+                                href={video.isSample ? "/studio" : `/studio?runPath=${encodeURIComponent(video.runPath || video.id)}`}
+                                className="w-full text-left px-3 py-1.5 text-body-sm font-body-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 cursor-pointer no-underline"
+                                onClick={() => setActiveCardMenuId(null)}
                               >
                                 <span className="material-symbols-outlined text-[15px]">edit</span>
-                                Rename
-                              </button>
-                              <button
-                                className="w-full text-left px-3 py-1.5 text-body-sm font-body-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 cursor-pointer bg-transparent border-0"
-                                onClick={() => {
-                                  setActionNotice(`Master 1080p render download available in Studio Archive.`);
-                                  setActiveCardMenuId(null);
-                                }}
-                                type="button"
-                              >
-                                <span className="material-symbols-outlined text-[15px]">download</span>
-                                Download video
-                              </button>
-                              <button
-                                className="w-full text-left px-3 py-1.5 text-body-sm font-body-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 cursor-pointer bg-transparent border-0"
-                                onClick={() => {
-                                  setActionNotice(`Prompt duplicated. You can initiate a new synthesis.`);
-                                  setActiveCardMenuId(null);
-                                }}
-                                type="button"
+                                Open in Studio
+                              </Link>
+                              {video.hasOutputVideo && (
+                                <a
+                                  href={`/api/studio/runs/${video.id}/download`}
+                                  download
+                                  className="w-full text-left px-3 py-1.5 text-body-sm font-body-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 cursor-pointer no-underline"
+                                  onClick={() => setActiveCardMenuId(null)}
+                                >
+                                  <span className="material-symbols-outlined text-[15px]">download</span>
+                                  Download MP4
+                                </a>
+                              )}
+                              <Link
+                                href={`/studio?topic=${encodeURIComponent(video.title)}`}
+                                className="w-full text-left px-3 py-1.5 text-body-sm font-body-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 cursor-pointer no-underline"
+                                onClick={() => setActiveCardMenuId(null)}
                               >
                                 <span className="material-symbols-outlined text-[15px]">copy_all</span>
                                 Duplicate prompt
-                              </button>
-                              <button
-                                className="w-full text-left px-3 py-1.5 text-body-sm font-body-sm text-error hover:bg-error-container/20 flex items-center gap-2 cursor-pointer bg-transparent border-0"
-                                onClick={() => {
-                                  setActionNotice(`Sample Codex manuscripts are read-only benchmark plates.`);
-                                  setActiveCardMenuId(null);
-                                }}
-                                type="button"
-                              >
-                                <span className="material-symbols-outlined text-[15px]">delete</span>
-                                Delete
-                              </button>
+                              </Link>
                             </div>
                           )}
                         </div>
@@ -569,7 +692,7 @@ export default function YourVideosPage() {
             )}
 
             {/* Empty State View */}
-            {(viewMode === "empty" || filteredVideos.length === 0) && (
+            {(viewMode === "empty" || (viewMode === "grid" && userVideos.length === 0)) && (
               <div className="flex flex-col items-center justify-center text-center py-20 px-4 bg-surface-container-lowest rounded-xl shadow-sm">
                 <div className="relative w-44 h-44 mb-space-lg flex items-center justify-center">
                   <svg
@@ -617,7 +740,7 @@ export default function YourVideosPage() {
                 <div className="flex items-center gap-space-sm flex-wrap justify-center">
                   <Link
                     className="inline-flex items-center gap-space-xs bg-primary-container hover:bg-primary text-on-primary font-title-md text-title-md px-space-md py-space-sm rounded-lg transition-colors shadow-sm"
-                    href="/welcome"
+                    href="/studio"
                   >
                     <span className="material-symbols-outlined text-[18px]">add</span>
                     <span>Create your first video</span>
@@ -625,13 +748,13 @@ export default function YourVideosPage() {
                   <button
                     className="inline-flex items-center gap-space-xs bg-surface-container hover:bg-surface-container-high text-on-surface font-title-md text-title-md px-space-md py-space-sm rounded-lg transition-colors cursor-pointer"
                     onClick={() => {
-                      setViewMode("grid");
+                      setViewMode("samples");
                       setSearchQuery("");
                       setActiveCategory("all");
                     }}
                     type="button"
                   >
-                    <span>Return to sample archive</span>
+                    <span>Explore sample archive</span>
                   </button>
                 </div>
               </div>
@@ -640,7 +763,7 @@ export default function YourVideosPage() {
             {/* Active Archive Status Bar / Footer summary */}
             <div className="mt-space-xl pt-space-lg flex flex-col sm:flex-row items-center justify-between gap-space-md text-secondary font-label-code text-label-code">
               <div className="flex items-center gap-space-md">
-                <span>STORAGE: 6.4 GB / 50 GB ALLOCATED</span>
+                <span>STORAGE: {((userVideos.reduce((acc, v) => acc + (v.videoSizeBytes || 0), 0)) / (1024 * 1024)).toFixed(1)} MB / 50 GB ALLOCATED</span>
                 <span>•</span>
                 <span>OUTPUT: 1080P MASTER ARCHIVE</span>
               </div>
@@ -654,6 +777,69 @@ export default function YourVideosPage() {
           </div>
         </div>
       </main>
+
+      {/* Video Preview Modal */}
+      {previewingVideo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+          onClick={() => setPreviewingVideo(null)}
+        >
+          <div
+            className="relative bg-surface-container-lowest rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-outline-variant flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/40 bg-surface">
+              <div className="min-w-0 pr-2">
+                <p className="font-title-md text-title-md text-on-surface truncate font-semibold">
+                  {previewingVideo.title}
+                </p>
+                <p className="font-label-code text-[11px] text-secondary">
+                  {previewingVideo.specs} • 9:16 Vertical Master
+                </p>
+              </div>
+              <button
+                onClick={() => setPreviewingVideo(null)}
+                className="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-secondary hover:text-on-surface transition-colors cursor-pointer border-0 bg-transparent"
+                type="button"
+                aria-label="Close video preview"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* Video Viewport */}
+            <div className="relative w-full aspect-[9/16] bg-black max-h-[70vh]">
+              <video
+                src={`/api/studio/runs/${previewingVideo.id}/video`}
+                controls
+                autoPlay
+                playsInline
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className="flex items-center justify-between p-3 bg-surface-container-low border-t border-outline-variant/40">
+              <Link
+                href={`/studio?runPath=${encodeURIComponent(previewingVideo.runPath || previewingVideo.id)}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-title-md text-body-sm transition-colors no-underline"
+              >
+                <span className="material-symbols-outlined text-[16px]">movie</span>
+                <span>Open in Studio</span>
+              </Link>
+              <a
+                href={`/api/studio/runs/${previewingVideo.id}/download`}
+                download
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-primary-container hover:bg-primary text-on-primary font-title-md text-body-sm transition-colors no-underline shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[16px]">download</span>
+                <span>Download MP4</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Editorial Colophon Footer */}
       <footer className="w-full bg-surface-container-low py-space-lg border-t border-outline-variant/30">

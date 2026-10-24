@@ -1,4 +1,6 @@
 import { mkdir, readFile, rename, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
@@ -13,7 +15,19 @@ import { resolveRunPath } from "./runService.js";
 import { compilePlanTimeline } from "../timing/timelineCompiler.js";
 import { validateRenderOutput } from "../validation/mediaValidator.js";
 
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+function resolveProjectRoot(): string {
+  const candidates = [
+    process.cwd(),
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../.."),
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.."),
+  ];
+  for (const c of candidates) {
+    if (existsSync(path.join(c, "src", "video", "Root.tsx"))) {
+      return c;
+    }
+  }
+  return process.cwd();
+}
 
 export interface RenderRunResult {
   manifest: RunManifest;
@@ -29,6 +43,7 @@ export async function renderRun(options: {
 }): Promise<RenderRunResult> {
   const { store, runPath } = options;
   const runDir = resolveRunPath(store, runPath);
+  const previewDir = path.join(runDir, "preview-frames");
   const now = options.now ?? new Date();
 
   // 1. Read manifest and verify approval state
@@ -41,7 +56,8 @@ export async function renderRun(options: {
   const canRender =
     manifest.state === "approved" ||
     manifest.state === "ready-for-review" ||
-    (manifest.state === "failed" && Boolean(manifest.artifacts.approval));
+    (manifest.state === "failed" && Boolean(manifest.artifacts.approval)) ||
+    (manifest.state === "running" && Boolean(manifest.artifacts.approval));
 
   if (!canRender) {
     throw new Error(
@@ -130,13 +146,19 @@ export async function renderRun(options: {
   // 5. Render Remotion Composition
   let bundleLocation: string | null = null;
   try {
-    const entryPoint = path.join(projectRoot, "src", "video", "Root.tsx");
+    const rootDir = resolveProjectRoot();
+    const entryPoint = path.join(rootDir, "src", "video", "Root.tsx");
     bundleLocation = await bundle({
       entryPoint,
       webpackOverride: (config) => ({
         ...config,
         resolve: {
           ...config.resolve,
+          alias: {
+            ...config.resolve?.alias,
+            react: path.resolve(rootDir, "node_modules", "react"),
+            "react-dom": path.resolve(rootDir, "node_modules", "react-dom"),
+          },
           extensionAlias: {
             ".js": [".ts", ".tsx", ".js", ".jsx"],
             ".mjs": [".mts", ".mjs"],
@@ -152,12 +174,19 @@ export async function renderRun(options: {
       inputProps: { timeline },
     });
 
+    const renderConcurrency = 1;
+
     await renderMedia({
       composition,
       serveUrl: bundleLocation,
       codec: "h264",
       outputLocation: tmpVideoPath,
       inputProps: { timeline },
+      concurrency: renderConcurrency,
+      timeoutInMilliseconds: 120000,
+      chromiumOptions: {
+        disableWebSecurity: true,
+      },
       onProgress: (prog) => {
         if (options.onProgress) {
           options.onProgress(prog.renderedFrames, composition.durationInFrames);
@@ -169,7 +198,6 @@ export async function renderRun(options: {
     await rename(tmpVideoPath, finalVideoPath);
 
     // Render representative still frames for each scene into preview-frames/
-    const previewDir = path.join(runDir, "preview-frames");
     await mkdir(previewDir, { recursive: true });
     for (let i = 0; i < timeline.scenes.length; i++) {
       const sc = timeline.scenes[i];
@@ -182,6 +210,10 @@ export async function renderRun(options: {
         imageFormat: "png",
         frame: midFrame,
         inputProps: { timeline },
+        chromiumOptions: {
+          disableWebSecurity: true,
+        },
+        timeoutInMilliseconds: 60000,
       });
     }
   } catch (renderError: unknown) {
@@ -193,13 +225,20 @@ export async function renderRun(options: {
     }
 
     const errorMsg = renderError instanceof Error ? renderError.message : "Unknown render failure";
+    const errorCode =
+      errorMsg.toLowerCase().includes("timeout") || errorMsg.includes("ERR_FRAME_TIMEOUT")
+        ? "ERR_FRAME_TIMEOUT"
+        : errorMsg.toLowerCase().includes("enoent")
+          ? "ASSET_MISSING"
+          : "RENDER_FAILED";
+
     manifest = {
       ...manifest,
       state: "failed",
       stage: "render",
       updatedAt: new Date().toISOString(),
       error: {
-        code: "RENDER_FAILED",
+        code: errorCode,
         message: errorMsg,
         stage: "render",
       },
@@ -221,6 +260,7 @@ export async function renderRun(options: {
     timeline,
     runId: manifest.runId,
     planHash: currentPlanHash,
+    previewFramesDir: previewDir,
   });
 
   await store.writeJson(runDir, "qa.json", qaReport);

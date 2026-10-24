@@ -5,11 +5,23 @@ import {
   readRunManifest,
   resolveRunPath,
 } from "../pipeline/runService.js";
+import type { PipelineStage, RunManifest } from "../contracts/manifest.js";
 
 export interface StudioTelemetryLog {
   timestamp: string;
   tag: string;
   message: string;
+}
+
+export interface CheckpointInfo {
+  hasPlan: boolean;
+  hasApproval: boolean;
+  hasAudio: boolean;
+  audioScenesCount: number;
+  totalScenes: number;
+  wordCount: number;
+  voiceName?: string;
+  missingArtifacts: string[];
 }
 
 export interface StudioJob {
@@ -29,6 +41,7 @@ export interface StudioJob {
   completedAt?: string;
   outputVideoPath?: string;
   videoSizeBytes?: number;
+  checkpoint?: CheckpointInfo;
 }
 
 function sanitizeId(ownerId: string): string {
@@ -39,6 +52,7 @@ function sanitizeId(ownerId: string): string {
 
 export class StudioJobRegistry {
   private jobs = new Map<string, StudioJob>();
+  private inFlightStarts = new Map<string, Promise<StudioJob>>();
   private store: LocalArtifactStore;
 
   constructor(store?: LocalArtifactStore) {
@@ -91,6 +105,8 @@ export class StudioJobRegistry {
       throw err;
     }
 
+    const checkpoint = await this.inspectCheckpoint(runPath, manifest);
+
     const videoRel = manifest.artifacts.outputVideo || "output.mp4";
     const videoAbs = path.join(runDir, videoRel);
 
@@ -127,10 +143,12 @@ export class StudioJobRegistry {
         completedAt: manifest.updatedAt,
         outputVideoPath: videoAbs,
         videoSizeBytes,
+        checkpoint,
       };
     }
 
     if (manifest.state === "failed") {
+      const errMsg = manifest.error?.message || "Render process encountered an interruption. Safe recovery checkpoint preserved.";
       return {
         jobId: `disk-${manifest.runId}`,
         runPath,
@@ -140,13 +158,14 @@ export class StudioJobRegistry {
         renderedFrames: 0,
         totalFrames: 100,
         percent: 86,
-        currentMessage: "Generation halted. Checkpoint telemetry preserved.",
+        currentMessage: errMsg,
         telemetryLogs: [
-          { timestamp: manifest.updatedAt, tag: "HALT", message: "Render process encountered interruption. Saved work is preserved." },
+          { timestamp: manifest.updatedAt, tag: "HALT", message: errMsg },
         ],
-        error: "Render process encountered an interruption. Safe recovery checkpoint preserved.",
+        error: errMsg,
         startedAt: manifest.createdAt,
         updatedAt: manifest.updatedAt,
+        checkpoint,
       };
     }
 
@@ -166,6 +185,73 @@ export class StudioJobRegistry {
       error: null,
       startedAt: manifest.createdAt,
       updatedAt: manifest.updatedAt,
+      checkpoint,
+    };
+  }
+
+  async inspectCheckpoint(runPath: string, manifest: RunManifest): Promise<CheckpointInfo> {
+    const runDir = resolveRunPath(this.store, runPath);
+    let hasPlan = false;
+    let wordCount = 0;
+    let totalScenes = 0;
+    const missingArtifacts: string[] = [];
+
+    try {
+      const rawPlan = await this.store.readJson<any>(runDir, "plan.json").catch(() => null);
+      if (rawPlan && Array.isArray(rawPlan.scenes)) {
+        hasPlan = true;
+        totalScenes = rawPlan.scenes.length;
+        wordCount = rawPlan.scenes.reduce(
+          (acc: number, s: any) =>
+            acc +
+            (Array.isArray(s.narration)
+              ? s.narration
+                  .map((n: any) => n.text || "")
+                  .join(" ")
+                  .split(/\s+/)
+                  .filter(Boolean).length
+              : 0),
+          0
+        );
+      } else {
+        missingArtifacts.push("plan.json");
+      }
+    } catch {
+      missingArtifacts.push("plan.json");
+    }
+
+    const hasApproval = Boolean(manifest.artifacts.approval);
+    if (!hasApproval) missingArtifacts.push("approval.json");
+
+    let audioScenesCount = 0;
+    if (totalScenes > 0 && manifest.artifacts.audio && manifest.artifacts.alignment) {
+      try {
+        const rawPlan = await this.store.readJson<any>(runDir, "plan.json");
+        for (const s of rawPlan.scenes) {
+          const aRel = path.join(manifest.artifacts.audio, `${s.id}.mp3`);
+          const alRel = path.join(manifest.artifacts.alignment, `${s.id}.json`);
+          if ((await this.store.exists(runDir, aRel)) && (await this.store.exists(runDir, alRel))) {
+            audioScenesCount++;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (totalScenes > 0 && audioScenesCount < totalScenes) {
+      missingArtifacts.push(`audio (${audioScenesCount}/${totalScenes} scenes present)`);
+    }
+
+    return {
+      hasPlan,
+      hasApproval,
+      hasAudio: totalScenes > 0 && audioScenesCount === totalScenes,
+      audioScenesCount,
+      totalScenes,
+      wordCount,
+      voiceName: manifest.provenance?.voiceName,
+      missingArtifacts,
     };
   }
 
@@ -182,9 +268,27 @@ export class StudioJobRegistry {
       return existing;
     }
 
+    const inFlight = this.inFlightStarts.get(runPath);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const startPromise = (async () => {
+      try {
+        return await this.executeStartRenderJob(runPath, ownerId);
+      } finally {
+        this.inFlightStarts.delete(runPath);
+      }
+    })();
+
+    this.inFlightStarts.set(runPath, startPromise);
+    return startPromise;
+  }
+
+  private async executeStartRenderJob(runPath: string, ownerId?: string): Promise<StudioJob> {
     // 2. Verify run manifest and approval
     const runDir = resolveRunPath(this.store, runPath);
-    const manifest = await readRunManifest(this.store, runPath);
+    let manifest = await readRunManifest(this.store, runPath);
 
     if (ownerId && manifest.ownerId !== sanitizeId(ownerId)) {
       const err = new Error("RESOURCE_NOT_FOUND");
@@ -200,22 +304,56 @@ export class StudioJobRegistry {
     const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const nowIso = new Date().toISOString();
 
+    // Reset failed manifest back to approved on retry
+    if (manifest.state === "failed") {
+      manifest = {
+        ...manifest,
+        state: "approved",
+        stage: "speech",
+        updatedAt: nowIso,
+      };
+      delete manifest.error;
+      await this.store.writeJson(runDir, "manifest.json", manifest);
+    }
+
+    // Inspect if speech audio and alignments are already present
+    let hasAudio = Boolean(manifest.artifacts.audio && manifest.artifacts.alignment);
+    const rawPlan = await this.store.readJson<any>(runDir, "plan.json").catch(() => null);
+    if (hasAudio && rawPlan?.scenes) {
+      for (const scene of rawPlan.scenes) {
+        const audioRel = path.join(manifest.artifacts.audio!, `${scene.id}.mp3`);
+        const alignRel = path.join(manifest.artifacts.alignment!, `${scene.id}.json`);
+        if (!(await this.store.exists(runDir, audioRel)) || !(await this.store.exists(runDir, alignRel))) {
+          hasAudio = false;
+          break;
+        }
+      }
+    }
+
+    const { readConfig } = await import("../config/env.js");
+    const config = readConfig();
+    const needsSpeechSynthesis = !hasAudio && Boolean(config.elevenLabsApiKey && config.elevenLabsModel);
+
+    const initialStage = needsSpeechSynthesis ? "voiceover" : "compositor";
+    const initialMessage = needsSpeechSynthesis
+      ? "Synthesizing voiceover narration with ElevenLabs (Phase III / V)..."
+      : "Initializing Remotion compositor and compiling frame layers (Phase IV / V)...";
+    const initialPercent = needsSpeechSynthesis ? 10 : 25;
+
     const job: StudioJob = {
       jobId,
       runPath,
       ownerId: manifest.ownerId,
-      stage: "compositor",
+      stage: initialStage,
       status: "running",
       renderedFrames: 0,
       totalFrames: 100,
-      percent: 0,
-      currentMessage: "Initializing Remotion compositor and compiling frame layers...",
+      percent: initialPercent,
+      currentMessage: initialMessage,
       telemetryLogs: [
         { timestamp: nowIso, tag: "INITIALIZATION", message: `Dispatched render job for run: ${runPath}` },
         { timestamp: nowIso, tag: "STAGE_01", message: "Manuscript approved and canonical hash verified." },
         { timestamp: nowIso, tag: "STAGE_02", message: "Visual plates and coordinate grids loaded." },
-        { timestamp: nowIso, tag: "STAGE_03", message: "Voiceover acoustics and timeline cues mapped." },
-        { timestamp: nowIso, tag: "STAGE_04", message: "Compositing 1080x1920 frames..." },
       ],
       error: null,
       startedAt: nowIso,
@@ -227,6 +365,56 @@ export class StudioJobRegistry {
     // 3. Launch async execution without blocking HTTP request
     (async () => {
       try {
+        // Step A: Speech Synthesis if required and configured
+        if (needsSpeechSynthesis) {
+          job.stage = "voiceover";
+          job.telemetryLogs.push({
+            timestamp: new Date().toISOString(),
+            tag: "STAGE_03",
+            message: "Synthesizing neural voiceover narration with ElevenLabs...",
+          });
+
+          const { synthesizeSpeechForRun } = await import("../pipeline/runService.js");
+          await synthesizeSpeechForRun({
+            runPath,
+            store: this.store,
+            config,
+            onSceneProgress: (sceneIndex, totalScenes, sceneId) => {
+              job.currentMessage = `Synthesizing narration for scene ${sceneIndex} of ${totalScenes} (${sceneId})...`;
+              job.percent = Math.round(10 + (sceneIndex / totalScenes) * 20);
+              job.updatedAt = new Date().toISOString();
+            },
+          });
+
+          job.telemetryLogs.push({
+            timestamp: new Date().toISOString(),
+            tag: "STAGE_03_DONE",
+            message: "Neural voiceover audio and alignment timestamps synthesized successfully.",
+          });
+        } else if (!hasAudio) {
+          job.telemetryLogs.push({
+            timestamp: new Date().toISOString(),
+            tag: "STAGE_03_SKIPPED",
+            message: "ElevenLabs API key omitted. Compiling timeline using estimated acoustic cadences.",
+          });
+        } else {
+          job.telemetryLogs.push({
+            timestamp: new Date().toISOString(),
+            tag: "STAGE_03_REUSED",
+            message: "Reusing verified voiceover acoustics from run cache.",
+          });
+        }
+
+        // Step B: Compositor Frame Rendering
+        job.stage = "compositor";
+        job.percent = 35;
+        job.currentMessage = "Initializing Remotion compositor and compiling frame layers...";
+        job.telemetryLogs.push({
+          timestamp: new Date().toISOString(),
+          tag: "STAGE_04",
+          message: "Remotion compositor started. Rendering 1080x1920 @ 30fps frames...",
+        });
+
         const { renderRun } = await import("../pipeline/renderService.js");
         const renderResult = await renderRun({
           runPath,
@@ -234,19 +422,24 @@ export class StudioJobRegistry {
           onProgress: (renderedFrames, totalFrames) => {
             job.renderedFrames = renderedFrames;
             job.totalFrames = totalFrames;
-            job.percent = totalFrames > 0 ? Math.round((renderedFrames / totalFrames) * 100) : 0;
+            job.percent = totalFrames > 0 ? Math.round(35 + (renderedFrames / totalFrames) * 60) : 35;
             job.currentMessage = `Compositing frame ${renderedFrames} of ${totalFrames} (Phase IV / V)`;
             job.updatedAt = new Date().toISOString();
           },
         });
 
-        // Verify output file existence
+        // Step C: Packaging & Output Validation
+        job.stage = "packaging";
+        job.percent = 98;
+        job.currentMessage = "Validating master render and preview stills...";
+        job.updatedAt = new Date().toISOString();
+
         const videoStat = await stat(renderResult.outputVideoPath);
         if (!videoStat.isFile() || videoStat.size === 0) {
           throw new Error("Rendered output file was not created or is empty.");
         }
 
-        job.stage = "packaging";
+        job.stage = "completed";
         job.percent = 100;
         job.status = "completed";
         job.completedAt = new Date().toISOString();
@@ -259,6 +452,7 @@ export class StudioJobRegistry {
           message: `Packaging validated: 1080x1920 @ 30fps master render ready (${(videoStat.size / (1024 * 1024)).toFixed(1)} MB).`,
         });
       } catch (renderError: any) {
+        const failedJobStage = job.stage;
         job.status = "failed";
         job.stage = "failed";
         job.error = renderError?.message || "Render failed";
@@ -268,6 +462,29 @@ export class StudioJobRegistry {
           tag: "HALT",
           message: renderError?.message || "Render failure",
         });
+
+        try {
+          const currentManifest = await readRunManifest(this.store, runPath);
+          let pipelineStage: PipelineStage = currentManifest.stage;
+          if (failedJobStage === "voiceover") pipelineStage = "speech";
+          else if (failedJobStage === "compositor") pipelineStage = "render";
+          else if (failedJobStage === "packaging") pipelineStage = "validate";
+
+          const updatedManifest: RunManifest = {
+            ...currentManifest,
+            state: "failed" as const,
+            stage: pipelineStage,
+            updatedAt: new Date().toISOString(),
+            error: {
+              code: "RENDER_FAILED",
+              message: renderError?.message || "Render failed",
+              stage: pipelineStage,
+            },
+          };
+          await this.store.writeJson(runDir, "manifest.json", updatedManifest);
+        } catch {
+          // Ignore secondary disk write error
+        }
       }
     })();
 
